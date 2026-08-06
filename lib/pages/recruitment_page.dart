@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
@@ -16,20 +17,28 @@ class RecruitmentPage extends StatelessWidget {
     final state = context.watch<AppState>();
     final posts = state.recruitments;
     return Scaffold(
-      appBar: AppBar(title: const Text('招募討論版')),
+      appBar: AppBar(title: Text(AppStrings.recruitmentTitle)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showRecruitmentEditor(context),
         icon: const Icon(Icons.campaign),
-        label: const Text('發起招募'),
+        label: Text(AppStrings.startRecruitment),
       ),
-      body: posts.isEmpty
-          ? _empty()
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-              itemCount: posts.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, i) => _PostCard(post: posts[i]),
-            ),
+      body: RefreshIndicator(
+        onRefresh: state.loadRemoteData,
+        child: posts.isEmpty
+            ? Stack(
+                children: [
+                  ListView(), // 讓下拉手勢在空清單也有效
+                  _empty(),
+                ],
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                itemCount: posts.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
+                itemBuilder: (context, i) => _PostCard(post: posts[i]),
+              ),
+      ),
     );
   }
 
@@ -40,8 +49,8 @@ class RecruitmentPage extends StatelessWidget {
         children: [
           const Icon(Icons.forum_outlined, size: 56, color: AppColors.textSecondary),
           const SizedBox(height: 12),
-          Text('還沒有招募貼文,\n點右下角發起第一則揪團吧!',
-              textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, height: 1.5)),
+          Text(AppStrings.recruitmentEmpty,
+              textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
         ],
       ),
     );
@@ -57,6 +66,7 @@ class _PostCard extends StatelessWidget {
     final state = context.watch<AppState>();
     final joined = state.hasJoined(post);
     final full = post.isFull;
+    final hosted = post.isHostedBy(state.currentUserId);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -78,10 +88,26 @@ class _PostCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(post.author,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                      Row(
+                        children: [
+                          Text(post.author,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                          if (hosted) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(AppStrings.hostedByMe,
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.accent)),
+                            ),
+                          ],
+                        ],
+                      ),
                       Text(_ago(post.createdAt),
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
@@ -98,9 +124,9 @@ class _PostCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _Tag(icon: Icons.group, text: '${post.joinedCount}/${post.headcount} 人'),
-                _Tag(icon: Icons.wc, text: post.genderPref.label),
-                _Tag(icon: Icons.payments, text: post.cost == 0 ? '免費' : 'NT\$ ${post.cost}'),
+                _Tag(icon: Icons.group, text: AppStrings.headcountLabel(post.joinedCount, post.headcount)),
+                _Tag(icon: Icons.wc, text: AppStrings.genderLabel(post.genderPref)),
+                _Tag(icon: Icons.payments, text: AppStrings.costLabel(post.cost)),
                 if (post.relatedActivity != null)
                   _Tag(icon: Icons.place, text: post.relatedActivity!.city),
               ],
@@ -112,13 +138,13 @@ class _PostCard extends StatelessWidget {
                   ? OutlinedButton.icon(
                       onPressed: () => state.toggleJoin(post),
                       icon: const Icon(Icons.check_circle),
-                      label: const Text('已加入(點擊退出)'),
+                      label: Text(AppStrings.joinedTapToLeave),
                       style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryDark),
                     )
                   : ElevatedButton.icon(
                       onPressed: full ? null : () => state.toggleJoin(post),
                       icon: Icon(full ? Icons.block : Icons.group_add),
-                      label: Text(full ? '人數已滿' : '我要加入'),
+                      label: Text(full ? AppStrings.full : AppStrings.join),
                     ),
             ),
           ],
@@ -129,10 +155,10 @@ class _PostCard extends StatelessWidget {
 
   static String _ago(DateTime t) {
     final diff = DateTime.now().difference(t);
-    if (diff.inMinutes < 1) return '剛剛';
-    if (diff.inMinutes < 60) return '${diff.inMinutes} 分鐘前';
-    if (diff.inHours < 24) return '${diff.inHours} 小時前';
-    if (diff.inDays < 7) return '${diff.inDays} 天前';
+    if (diff.inMinutes < 1) return AppStrings.justNow;
+    if (diff.inMinutes < 60) return AppStrings.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return AppStrings.hoursAgo(diff.inHours);
+    if (diff.inDays < 7) return AppStrings.daysAgo(diff.inDays);
     return AppDate.monthDay(t);
   }
 }

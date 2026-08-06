@@ -1,24 +1,110 @@
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../services/attraction_asset_service.dart';
 import '../services/culture_api_service.dart';
 import '../services/notification_service.dart';
+import '../services/profile_repository.dart';
+import '../services/recruitment_repository.dart';
+import '../services/schedule_repository.dart';
+import '../services/supabase_config.dart';
+import '../services/taipei_travel_service.dart';
 import 'mock_data.dart';
+
+/// 活動頁的類別:景點(全台,本地資料)/ 展覽(文化部 API)。
+enum ActivitySection { attraction, exhibition }
 
 /// 全 App 集中狀態:活動、行程、招募、預約、個人資料。
 /// 無後端,資料存於記憶體(重啟即重置),提醒透過 NotificationService 排程。
 class AppState extends ChangeNotifier {
   AppState() {
     _activities = buildMockActivities();
-    _seedRecruitments();
     loadActivities();
+    loadCitySpots();
+    loadRemoteData();
   }
 
   final CultureApiService _cultureApi = CultureApiService();
+  // 保留:台北線上景點 API(目前改用本地全台資料,暫不使用)。
+  // ignore: unused_field
+  final TaipeiTravelService _taipeiApi = TaipeiTravelService();
+  final AttractionAssetService _attractionAsset = AttractionAssetService();
+  final ProfileRepository _profileRepo = ProfileRepository();
+  final RecruitmentRepository _recruitmentRepo = RecruitmentRepository();
+  final ScheduleRepository _scheduleRepo = ScheduleRepository();
+
+  /// 目前登入使用者的 id。
+  String? get currentUserId => SupabaseConfig.userId;
+
+  bool _syncing = false;
+  String? _syncError;
+  bool get isSyncing => _syncing;
+  String? get syncError => _syncError;
+
+  /// 錯誤訊息顯示過後清除,避免重複彈出。
+  void clearSyncError() {
+    if (_syncError == null) return;
+    _syncError = null;
+    notifyListeners();
+  }
+
+  /// 從伺服器載入個人資料、招募、行程。
+  ///
+  /// 每個區塊獨立處理,單一失敗不影響其他資料載入。
+  Future<void> loadRemoteData() async {
+    if (!SupabaseConfig.isSignedIn) return;
+    _syncing = true;
+    _syncError = null;
+    notifyListeners();
+
+    final errors = <String>[];
+
+    // 個人資料(後端尚無紀錄時會自動補建)
+    try {
+      final profile = await _profileRepo.fetchOrCreateProfile();
+      if (profile != null) _profile = profile;
+    } catch (e) {
+      errors.add('個人資料');
+      debugPrint('載入個人資料失敗: $e');
+    }
+
+    // 招募
+    try {
+      final posts = await _recruitmentRepo.fetchAll();
+      _recruitments
+        ..clear()
+        ..addAll(posts);
+      _hostedCount = _recruitments.where((r) => r.isHostedBy(currentUserId)).length;
+    } catch (e) {
+      errors.add('招募');
+      debugPrint('載入招募失敗: $e');
+    }
+
+    // 行程
+    try {
+      final items = await _scheduleRepo.fetchAll();
+      _schedule
+        ..clear()
+        ..addAll(items);
+    } catch (e) {
+      errors.add('行程');
+      debugPrint('載入行程失敗: $e');
+    }
+
+    _rebuildBookings();
+
+    if (errors.isNotEmpty) {
+      _syncError = '無法載入${errors.join('、')},請檢查網路後下拉重新整理。';
+    }
+    _syncing = false;
+    notifyListeners();
+  }
+
+  static const String taipeiCity = '台北市';
 
   // ===== 活動 =====
   late List<Activity> _activities;
-  String _selectedCity = '台北市';
+  String _selectedCity = taipeiCity;
   bool _loadingActivities = false;
   bool _usingLiveData = false;
   String? _activitiesError;
@@ -29,8 +115,65 @@ class AppState extends ChangeNotifier {
   bool get usingLiveData => _usingLiveData;
   String? get activitiesError => _activitiesError;
 
+  /// 目前是否為台北市。
+  bool get isTaipei => _selectedCity == taipeiCity;
+
+  // ===== 類別(景點/展覽)=====
+  // 全台縣市都有景點類別,預設顯示景點。
+  ActivitySection _section = ActivitySection.attraction;
+  ActivitySection get section => _section;
+
+  void selectSection(ActivitySection s) {
+    _section = s;
+    if (s == ActivitySection.attraction) loadCitySpots();
+    notifyListeners();
+  }
+
   void selectCity(String city) {
     _selectedCity = city;
+    if (_section == ActivitySection.attraction) loadCitySpots();
+    notifyListeners();
+  }
+
+  // ===== 景點(全台,本地 asset 資料,依縣市顯示)=====
+  // 本地資料一次全載入並快取,依 selectedCity 過濾;分頁在前端做(避免一次渲染數百張卡)。
+  List<TravelSpot> _citySpots = [];
+  int _spotVisible = 0; // 目前顯示筆數(前端分頁)
+  static const int _spotPageSize = 20;
+  bool _loadingSpots = false;
+  String? _spotsError;
+
+  /// 目前縣市、已顯示的景點(前端分頁)。
+  List<TravelSpot> get travelSpots =>
+      List.unmodifiable(_citySpots.take(_spotVisible));
+  bool get isLoadingSpots => _loadingSpots;
+  bool get isLoadingMoreSpots => false;
+  String? get spotsError => _spotsError;
+  bool get hasMoreSpots => _spotVisible < _citySpots.length;
+
+  /// 載入目前縣市的景點(從本地 asset)。
+  Future<void> loadCitySpots() async {
+    _loadingSpots = true;
+    _spotsError = null;
+    notifyListeners();
+    try {
+      _citySpots = await _attractionAsset.byCity(_selectedCity);
+      _spotVisible = _citySpots.length < _spotPageSize ? _citySpots.length : _spotPageSize;
+    } catch (e) {
+      _spotsError = '無法載入景點資料,請稍後再試。';
+      _citySpots = [];
+      _spotVisible = 0;
+    } finally {
+      _loadingSpots = false;
+      notifyListeners();
+    }
+  }
+
+  /// 捲到底:多顯示一頁(前端分頁,不打網路)。
+  Future<void> loadMoreTravelSpots() async {
+    if (!hasMoreSpots) return;
+    final next = _spotVisible + _spotPageSize;
+    _spotVisible = next < _citySpots.length ? next : _citySpots.length;
     notifyListeners();
   }
 
@@ -44,8 +187,9 @@ class AppState extends ChangeNotifier {
       if (live.isNotEmpty) {
         _activities = live;
         _usingLiveData = true;
-        // 若目前選的縣市在即時資料中沒有活動,自動切到有活動的第一個縣市。
-        if (activitiesForSelectedCity.isEmpty) {
+        // 展覽即時資料載入後,若目前展覽縣市沒有活動且非台北,自動切到有活動的縣市。
+        // (台北預設看景點,不因展覽空白而跳走)
+        if (!isTaipei && activitiesForSelectedCity.isEmpty) {
           final firstWithData = cities.firstWhere(
             (c) => _activitiesInCity(c).isNotEmpty,
             orElse: () => _selectedCity,
@@ -82,45 +226,75 @@ class AppState extends ChangeNotifier {
 
   bool isScheduled(Activity activity) => _schedule.any((s) => s.activity.id == activity.id);
 
-  /// 排入行程:预设提醒时间为活动前一天早上 9 点(若已过则改活动前一小时)。
-  void addToSchedule(Activity activity) {
+  /// 排入行程。可帶入使用者選定的排入時間 scheduledAt(景點無固定時間時使用);
+  /// 展覽等有固定時間者傳 null,沿用 activity.date。
+  Future<void> addToSchedule(Activity activity, {DateTime? scheduledAt}) async {
     if (isScheduled(activity)) return;
-    final defaultRemind = _defaultRemindFor(activity.date);
-    final item = ScheduleItem(
-      id: 'sch_${activity.id}',
-      activity: activity,
-      remindAt: defaultRemind,
-    );
+    // 景點依使用者選的時間建立;其餘沿用原本 activity。
+    final effective = scheduledAt != null
+        ? Activity(
+            id: activity.id,
+            title: activity.title,
+            city: activity.city,
+            venue: activity.venue,
+            date: scheduledAt,
+            category: activity.category,
+            description: activity.description,
+            cost: activity.cost,
+          )
+        : activity;
+    final defaultRemind = _defaultRemindFor(effective.date);
+
+    final item = await _scheduleRepo.add(effective, defaultRemind);
+    if (item == null) {
+      _syncError = '無法排入行程,請稍後再試。';
+      notifyListeners();
+      return;
+    }
     _schedule.add(item);
     _syncReminder(item);
-    // 同步产生一笔预约(来源:排入活动)。
-    _addBooking(Booking(
-      id: 'book_${activity.id}',
-      title: activity.title,
-      date: activity.date,
-      source: BookingSource.activity,
-      city: activity.city,
-      cost: activity.cost,
-    ));
+    _rebuildBookings();
     notifyListeners();
   }
 
-  void removeFromSchedule(String scheduleId) {
+  /// 排入景點:一律需要使用者選定日期時間。
+  Future<void> addSpotToSchedule(TravelSpot spot, DateTime scheduledAt) async {
+    final activity = Activity.fromSpot(spot, scheduledAt);
+    await addToSchedule(activity, scheduledAt: scheduledAt);
+  }
+
+  /// 取得某一天(不含時間)的行程,依時間升序。
+  List<ScheduleItem> scheduleOnDay(DateTime day) {
+    final target = DateTime(day.year, day.month, day.day);
+    final list = _schedule.where((s) {
+      final d = s.activity.date;
+      return DateTime(d.year, d.month, d.day) == target;
+    }).toList()
+      ..sort((a, b) => a.activity.date.compareTo(b.activity.date));
+    return list;
+  }
+
+  /// 某一天是否有行程(週曆上做標記用)。
+  bool hasScheduleOnDay(DateTime day) => scheduleOnDay(day).isNotEmpty;
+
+  Future<void> removeFromSchedule(String scheduleId) async {
     final idx = _schedule.indexWhere((s) => s.id == scheduleId);
     if (idx < 0) return;
     final item = _schedule[idx];
     NotificationService.instance.cancel(item.id.hashCode);
     _schedule.removeAt(idx);
-    _removeBooking('book_${item.activity.id}');
+    _rebuildBookings();
     notifyListeners();
+    await _scheduleRepo.remove(scheduleId);
   }
 
-  void updateReminder(String scheduleId, {DateTime? remindAt, bool? enabled}) {
+  Future<void> updateReminder(String scheduleId, {DateTime? remindAt, bool? enabled}) async {
     final item = _schedule.firstWhere((s) => s.id == scheduleId);
     if (remindAt != null) item.remindAt = remindAt;
     if (enabled != null) item.reminderEnabled = enabled;
     _syncReminder(item);
     notifyListeners();
+    await _scheduleRepo.updateReminder(scheduleId, remindAt: remindAt, enabled: enabled);
   }
 
   DateTime _defaultRemindFor(DateTime activityDate) {
@@ -150,92 +324,62 @@ class AppState extends ChangeNotifier {
   int _hostedCount = 0;
   int get hostedRecruitmentCount => _hostedCount;
 
-  void _seedRecruitments() {
-    final now = DateTime.now();
-    _recruitments.addAll([
-      RecruitmentPost(
-        id: 'rec_seed_1',
-        title: '找伴一起去陽明山健行',
-        content: '預計早上出發,輕鬆路線,歡迎新手!結束後可以一起吃午餐。',
-        headcount: 6,
-        genderPref: GenderPref.any,
-        cost: 0,
-        author: '小綠',
-        createdAt: now.subtract(const Duration(hours: 5)),
-        joinedBy: {'阿哲', '妞妞'},
-        // 範例資料
-      ),
-      RecruitmentPost(
-        id: 'rec_seed_2',
-        title: '週末羽球揪團',
-        content: '雙打輪替,程度不拘,球場已訂好,費用現場均分。',
-        headcount: 4,
-        genderPref: GenderPref.balanced,
-        cost: 180,
-        author: '球咖阿明',
-        createdAt: now.subtract(const Duration(days: 1)),
-        joinedBy: {'Ken'},
-      ),
-    ]);
-  }
-
-  /// 发起招募(讨论版发文):同时算一次「开启招募次数」,并产生一笔预约。
-  void createRecruitment({
+  /// 發起招募。建立後重新從伺服器取得清單,保持單一資料來源。
+  Future<void> createRecruitment({
     required String title,
     required String content,
     required int headcount,
     required GenderPref genderPref,
     required int cost,
     Activity? relatedActivity,
-  }) {
-    final me = _profile.nickname;
-    final post = RecruitmentPost(
-      id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
-      title: title,
-      content: content,
-      headcount: headcount,
-      genderPref: genderPref,
-      cost: cost,
-      author: me,
-      createdAt: DateTime.now(),
-      relatedActivity: relatedActivity,
-      joinedBy: {me},
-    );
-    _recruitments.add(post);
-    _hostedCount += 1;
-    _addBooking(Booking(
-      id: 'book_${post.id}',
-      title: post.title,
-      date: relatedActivity?.date,
-      source: BookingSource.hosted,
-      city: relatedActivity?.city,
-      cost: cost,
-    ));
-    notifyListeners();
+  }) async {
+    try {
+      await _recruitmentRepo.create(
+        title: title,
+        content: content,
+        headcount: headcount,
+        genderPref: genderPref,
+        cost: cost,
+        relatedActivity: relatedActivity,
+      );
+      await loadRemoteData();
+    } catch (e) {
+      _syncError = '無法發布招募,請稍後再試。';
+      notifyListeners();
+    }
   }
 
-  bool hasJoined(RecruitmentPost post) => post.joinedBy.contains(_profile.nickname);
+  /// 目前使用者是否已加入這則招募。
+  bool hasJoined(RecruitmentPost post) => post.isJoinedBy(currentUserId);
 
-  /// 加入/退出招募。加入时产生预约,退出时移除。
-  void toggleJoin(RecruitmentPost post) {
-    final me = _profile.nickname;
-    if (post.joinedBy.contains(me)) {
-      post.joinedBy.remove(me);
-      _removeBooking('book_join_${post.id}');
+  /// 加入/退出招募。名額檢查由伺服器以交易保證。
+  Future<void> toggleJoin(RecruitmentPost post) async {
+    final uid = currentUserId;
+    if (uid == null) return;
+
+    if (post.joinedBy.contains(uid)) {
+      // 退出:先更新畫面,再送出請求。
+      post.joinedBy.remove(uid);
+      _rebuildBookings();
+      notifyListeners();
+      await _recruitmentRepo.leave(post.id);
     } else {
-      if (post.isFull) return;
-      post.joinedBy.add(me);
-      _participated = true;
-      _addBooking(Booking(
-        id: 'book_join_${post.id}',
-        title: post.title,
-        date: post.relatedActivity?.date,
-        source: BookingSource.joined,
-        city: post.relatedActivity?.city,
-        cost: post.cost,
-      ));
+      final result = await _recruitmentRepo.join(post.id);
+      switch (result) {
+        case JoinResult.ok:
+          post.joinedBy.add(uid);
+          _participated = true;
+          _rebuildBookings();
+        case JoinResult.full:
+          _syncError = '名額已滿,請看看其他揪團。';
+          // 重新同步以取得最新人數。
+          await loadRemoteData();
+          return;
+        default:
+          _syncError = '無法加入,請稍後再試。';
+      }
+      notifyListeners();
     }
-    notifyListeners();
   }
 
   // ===== 预约 =====
@@ -252,43 +396,156 @@ class AppState extends ChangeNotifier {
     return list;
   }
 
-  void _addBooking(Booking b) {
-    if (_bookings.any((x) => x.id == b.id)) return;
-    _bookings.add(b);
-  }
+  /// 從行程與招募重新推導預約清單(單一資料來源,避免兩邊不同步)。
+  void _rebuildBookings() {
+    final uid = currentUserId;
+    _bookings.clear();
 
-  void _removeBooking(String id) {
-    _bookings.removeWhere((x) => x.id == id);
+    // 我排入的活動
+    for (final s in _schedule) {
+      _bookings.add(Booking(
+        id: 'book_sch_${s.id}',
+        title: s.activity.title,
+        date: s.activity.date,
+        source: BookingSource.activity,
+        city: s.activity.city,
+        cost: s.activity.cost,
+      ));
+    }
+
+    if (uid == null) return;
+
+    // 我發起 / 我加入的招募
+    for (final r in _recruitments) {
+      final hosted = r.isHostedBy(uid);
+      final joined = r.isJoinedBy(uid);
+      if (!hosted && !joined) continue;
+      _bookings.add(Booking(
+        id: 'book_rec_${r.id}',
+        title: r.title,
+        date: r.relatedActivity?.date,
+        source: hosted ? BookingSource.hosted : BookingSource.joined,
+        city: r.relatedActivity?.city,
+        cost: r.cost,
+      ));
+    }
   }
 
   // ===== 个人资料 =====
-  final UserProfile _profile = UserProfile(
+  UserProfile _profile = UserProfile(
     nickname: '我',
     bio: '熱愛週末走跳、認識新朋友!',
     avatarColorValue: 0xFF3BB273,
-    photos: ['🌿', '🏞️', '☕'],
   );
   bool _participated = false;
+  bool _avatarUploading = false;
 
   UserProfile get profile => _profile;
+
+  /// 頭像是否正在上傳(UI 顯示進度用)。
+  bool get isAvatarUploading => _avatarUploading;
   bool get hasParticipated => _participated || _schedule.isNotEmpty;
 
-  void updateProfile({String? nickname, String? bio, int? avatarColorValue}) {
+  Future<void> updateProfile({String? nickname, String? bio, int? avatarColorValue}) async {
     if (nickname != null && nickname.trim().isNotEmpty) _profile.nickname = nickname.trim();
     if (bio != null) _profile.bio = bio.trim();
     if (avatarColorValue != null) _profile.avatarColorValue = avatarColorValue;
     notifyListeners();
+    await _profileRepo.updateProfile(
+      nickname: nickname,
+      bio: bio,
+      avatarColorValue: avatarColorValue,
+    );
   }
 
-  void addPhoto(String emoji) {
-    _profile.photos.add(emoji);
+  /// 上傳頭像。上傳中先以本機檔案顯示,完成後換成遠端網址。
+  Future<void> uploadAvatar(String path) async {
+    if (path.trim().isEmpty) return;
+
+    final oldPath = _profile.avatarPath;
+    final oldUrl = _profile.avatarUrl;
+
+    // 樂觀更新:先用本機路徑讓畫面立即有反應。
+    _profile.avatarUrl = path;
+    _profile.avatarPath = null;
+    _avatarUploading = true;
+    notifyListeners();
+
+    try {
+      final result = await _profileRepo.uploadAvatar(path, oldPath: oldPath);
+      if (result != null) {
+        _profile.avatarUrl = result.url;
+        _profile.avatarPath = result.path;
+      } else {
+        _profile.avatarUrl = oldUrl;
+        _profile.avatarPath = oldPath;
+        _syncError = '頭像上傳失敗,請稍後再試。';
+      }
+    } catch (e) {
+      _profile.avatarUrl = oldUrl;
+      _profile.avatarPath = oldPath;
+      _syncError = '頭像上傳失敗,請稍後再試。';
+      debugPrint('頭像上傳失敗: $e');
+    } finally {
+      _avatarUploading = false;
+      notifyListeners();
+    }
+  }
+
+  /// 移除頭像,回到色塊 + 暱稱首字。
+  Future<void> removeAvatar() async {
+    final oldPath = _profile.avatarPath;
+    _profile.avatarUrl = null;
+    _profile.avatarPath = null;
+    notifyListeners();
+    await _profileRepo.removeAvatar(oldPath);
+  }
+
+  /// 新增 emoji 佔位照片。
+  Future<void> addPhoto(String emoji) async {
+    final photo = await _profileRepo.addEmojiPhoto(emoji);
+    if (photo == null) {
+      _syncError = '無法新增照片,請稍後再試。';
+      notifyListeners();
+      return;
+    }
+    _profile.photos.add(photo);
     notifyListeners();
   }
 
-  void removePhoto(int index) {
-    if (index >= 0 && index < _profile.photos.length) {
-      _profile.photos.removeAt(index);
-      notifyListeners();
+  /// 上傳實際照片(來自相機或相簿)。上傳中先以本機檔案顯示。
+  Future<void> addPhotoFile(String path) async {
+    if (path.trim().isEmpty) return;
+
+    // 樂觀更新:先放本機檔案讓畫面立即有反應。
+    final placeholder = ProfilePhoto.file(path);
+    _profile.photos.add(placeholder);
+    notifyListeners();
+
+    try {
+      final uploaded = await _profileRepo.uploadPhoto(path);
+      final idx = _profile.photos.indexOf(placeholder);
+      if (uploaded != null) {
+        if (idx >= 0) {
+          _profile.photos[idx] = uploaded;
+        } else {
+          _profile.photos.add(uploaded);
+        }
+      } else if (idx >= 0) {
+        _profile.photos.removeAt(idx);
+        _syncError = '照片上傳失敗,請稍後再試。';
+      }
+    } catch (e) {
+      _profile.photos.remove(placeholder);
+      _syncError = '照片上傳失敗,請稍後再試。';
     }
+    notifyListeners();
+  }
+
+  Future<void> removePhoto(int index) async {
+    if (index < 0 || index >= _profile.photos.length) return;
+    final photo = _profile.photos.removeAt(index);
+    notifyListeners();
+    await _profileRepo.deletePhoto(photo);
   }
 }

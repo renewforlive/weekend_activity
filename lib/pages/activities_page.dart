@@ -2,52 +2,332 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
 import '../widgets/recruitment_editor.dart';
+import '../widgets/schedule_time_picker.dart';
+import 'travel_spot_detail_page.dart';
 
-/// 活動頁:選擇台灣縣市,列出近三個月內的活動。
+/// 活動頁:選地區。全台縣市皆可切換景點(本地資料)/展覽(文化部)。
 class ActivitiesPage extends StatelessWidget {
   const ActivitiesPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final activities = state.activitiesForSelectedCity;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('探索活動'),
+        title: Text(AppStrings.activitiesTitle),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(58),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Row(
-              children: [
-                const Icon(Icons.place, color: AppColors.accent),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _CityDropdown(
-                    value: state.selectedCity,
-                    cities: state.cities,
-                    onChanged: state.selectCity,
-                  ),
+          preferredSize: const Size.fromHeight(108),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.place, color: AppColors.accent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _CityDropdown(
+                        value: state.selectedCity,
+                        cities: state.cities,
+                        onChanged: state.selectCity,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text('近三個月', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-              ],
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: _SectionTabs(
+                  current: state.section,
+                  onChanged: state.selectSection,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      body: state.section == ActivitySection.attraction
+          ? const _AttractionsList()
+          : _ExhibitionList(activities: state.activitiesForSelectedCity),
+    );
+  }
+}
+
+class _SectionTabs extends StatelessWidget {
+  const _SectionTabs({required this.current, required this.onChanged});
+  final ActivitySection current;
+  final ValueChanged<ActivitySection> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _tab(AppStrings.sectionAttraction, ActivitySection.attraction),
+        const SizedBox(width: 8),
+        _tab(AppStrings.sectionExhibition, ActivitySection.exhibition),
+      ],
+    );
+  }
+
+  Widget _tab(String label, ActivitySection section) {
+    final selected = current == section;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => onChanged(section),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: selected ? Colors.white : AppColors.textSecondary,
             ),
           ),
         ),
       ),
-      body: activities.isEmpty
-          ? const _EmptyHint(text: '這個縣市近三個月還沒有活動,\n換個縣市看看吧!')
-          : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              itemCount: activities.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, i) => ActivityCard(activity: activities[i]),
+    );
+  }
+}
+
+// ===== 景點列表(全台,本地資料,前端分頁)=====
+class _AttractionsList extends StatefulWidget {
+  const _AttractionsList();
+
+  @override
+  State<_AttractionsList> createState() => _AttractionsListState();
+}
+
+class _AttractionsListState extends State<_AttractionsList> {
+  final ScrollController _scroll = ScrollController();
+  String? _lastCity;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 300) {
+      context.read<AppState>().loadMoreTravelSpots();
+    }
+  }
+
+  /// 換地區時把列表捲回最上方。
+  void _resetScrollIfCityChanged(String city) {
+    if (_lastCity != null && _lastCity != city && _scroll.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) _scroll.jumpTo(0);
+      });
+    }
+    _lastCity = city;
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    _resetScrollIfCityChanged(state.selectedCity);
+    if (state.isLoadingSpots) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.spotsError != null && state.travelSpots.isEmpty) {
+      return _ErrorRetry(message: AppStrings.spotsError, onRetry: state.loadCitySpots);
+    }
+    final spots = state.travelSpots;
+    if (spots.isEmpty) {
+      return _EmptyHint(text: AppStrings.spotsEmpty);
+    }
+    return RefreshIndicator(
+      onRefresh: state.loadCitySpots,
+      child: ListView.separated(
+        controller: _scroll,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        itemCount: spots.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, i) {
+          if (i == spots.length) return _footer(state);
+          return _SpotCard(spot: spots[i]);
+        },
+      ),
+    );
+  }
+
+  Widget _footer(AppState state) {
+    if (state.isLoadingMoreSpots) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: Text(
+          state.hasMoreSpots ? AppStrings.loadingMore : AppStrings.noMoreData,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        ),
+      ),
+    );
+  }
+}
+
+/// 景點卡片:縮圖 + 名稱 + 開放狀態 + 地區,點擊進詳情頁。
+class _SpotCard extends StatelessWidget {
+  const _SpotCard({required this.spot});
+  final TravelSpot spot;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => TravelSpotDetailPage(spot: spot)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (spot.images.isNotEmpty)
+              Image.network(
+                spot.images.first,
+                height: 160,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return Container(height: 160, color: AppColors.soft);
+                },
+                errorBuilder: (context, _, _) => Container(
+                  height: 160,
+                  color: AppColors.soft,
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(spot.name,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                      ),
+                      _MiniOpen(isOpen: spot.isOpen),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.place_outlined, size: 15, color: AppColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          [spot.distric, spot.address].where((s) => s.isNotEmpty).join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (spot.introduction.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(spot.introduction,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+                  ],
+
+
+
+
+
+
+                ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniOpen extends StatelessWidget {
+  const _MiniOpen({required this.isOpen});
+  final bool isOpen;
+  @override
+  Widget build(BuildContext context) {
+    final color = isOpen ? AppColors.primary : AppColors.danger;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+      child: Text(isOpen ? AppStrings.open : AppStrings.closed,
+          style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+class _ErrorRetry extends StatelessWidget {
+  const _ErrorRetry({required this.message, required this.onRetry});
+  final String message;
+  final Future<void> Function() onRetry;
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off, size: 56, color: AppColors.textSecondary),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(onPressed: onRetry, child: const Text('重試')),
+        ],
+      ),
+    );
+  }
+}
+
+// ===== 展覽列表(文化部)=====
+class _ExhibitionList extends StatelessWidget {
+  const _ExhibitionList({required this.activities});
+  final List<Activity> activities;
+
+  @override
+  Widget build(BuildContext context) {
+    if (activities.isEmpty) {
+      return _EmptyHint(text: AppStrings.activitiesEmpty);
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      itemCount: activities.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      itemBuilder: (context, i) => ActivityCard(activity: activities[i]),
     );
   }
 }
@@ -105,7 +385,7 @@ class ActivityCard extends StatelessWidget {
                     children: [
                       Text(activity.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                       const SizedBox(height: 2),
-                      Text(activity.category.label, style: TextStyle(fontSize: 12, color: activity.category.color, fontWeight: FontWeight.w600)),
+                      Text(AppStrings.categoryLabel(activity.category), style: TextStyle(fontSize: 12, color: activity.category.color, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -123,14 +403,9 @@ class ActivityCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: scheduled ? null : () {
-                      state.addToSchedule(activity);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('已排入行程,並幫你設定提醒 🔔')),
-                      );
-                    },
+                    onPressed: scheduled ? null : () => showScheduleTimePicker(context, activity: activity),
                     icon: Icon(scheduled ? Icons.check : Icons.add_task, size: 18),
-                    label: Text(scheduled ? '已在行程' : '排入行程'),
+                    label: Text(scheduled ? AppStrings.scheduledAlready : AppStrings.addToSchedule),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: scheduled ? AppColors.soft : AppColors.primary,
                       foregroundColor: scheduled ? AppColors.primaryDark : Colors.white,
@@ -142,7 +417,7 @@ class ActivityCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => showRecruitmentEditor(context, relatedActivity: activity),
                     icon: const Icon(Icons.campaign_outlined, size: 18),
-                    label: const Text('發起招募'),
+                    label: Text(AppStrings.startRecruitment),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.accent,
                       side: const BorderSide(color: AppColors.accent),
@@ -173,7 +448,7 @@ class _CostTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
-        free ? '免費' : 'NT\$ $cost',
+        AppStrings.costLabel(cost),
         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: free ? AppColors.primaryDark : AppColors.accent),
       ),
     );

@@ -1,10 +1,16 @@
+﻿import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
+import '../l10n/app_strings.dart';
+import '../models/models.dart';
 import '../theme/app_theme.dart';
+import '../widgets/profile_avatar.dart';
 
-/// 個人頁:頭像、照片、暱稱、自介、是否參與過活動、開啟招募次數。
+/// 個人頁:頭像、照片(可拍照/選相簿)、暱稱、自介、是否參與過活動、開啟招募次數。
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
@@ -18,7 +24,7 @@ class ProfilePage extends StatelessWidget {
     final p = state.profile;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('個人頁'),
+        title: Text(AppStrings.profileTitle),
         actions: [
           IconButton(
             onPressed: () => _editProfile(context, state),
@@ -32,20 +38,22 @@ class ProfilePage extends StatelessWidget {
           Center(
             child: Column(
               children: [
-                CircleAvatar(
-                  radius: 48,
-                  backgroundColor: Color(p.avatarColorValue),
-                  child: Text(
-                    p.nickname.characters.first,
-                    style: const TextStyle(fontSize: 40, color: Colors.white, fontWeight: FontWeight.w800),
+                GestureDetector(
+                  onTap: () => _avatarActions(context, state),
+                  child: ProfileAvatar(
+                    profile: p,
+                    uploading: state.isAvatarUploading,
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(p.nickname, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                Text(p.nickname,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
                 const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(p.bio, textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5)),
+                  child: Text(p.bio,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5)),
                 ),
               ],
             ),
@@ -53,28 +61,43 @@ class ProfilePage extends StatelessWidget {
           const SizedBox(height: 20),
           Row(
             children: [
-              Expanded(child: _StatCard(icon: Icons.verified, label: '是否參與過活動', value: state.hasParticipated ? '已參與' : '尚未參與', color: state.hasParticipated ? AppColors.primary : AppColors.textSecondary)),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.verified,
+                  label: AppStrings.participatedLabel,
+                  value: state.hasParticipated ? AppStrings.participated : AppStrings.notParticipated,
+                  color: state.hasParticipated ? AppColors.primary : AppColors.textSecondary,
+                ),
+              ),
               const SizedBox(width: 12),
-              Expanded(child: _StatCard(icon: Icons.campaign, label: '開啟招募次數', value: '${state.hostedRecruitmentCount} 次', color: AppColors.accent)),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.campaign,
+                  label: AppStrings.hostedCountLabel,
+                  value: AppStrings.timesLabel(state.hostedRecruitmentCount),
+                  color: AppColors.accent,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 24),
           Row(
             children: [
-              const Text('我的照片', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-              // 照片區
+              Text(AppStrings.myPhotos,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
               const Spacer(),
               TextButton.icon(
                 onPressed: () => _addPhoto(context, state),
                 icon: const Icon(Icons.add_a_photo_outlined, size: 18, color: AppColors.primary),
-                label: const Text('新增', style: TextStyle(color: AppColors.primary)),
+                label: Text(AppStrings.add, style: const TextStyle(color: AppColors.primary)),
               ),
             ],
           ),
           const SizedBox(height: 8),
           _PhotoGrid(photos: p.photos, onRemove: state.removePhoto),
           const SizedBox(height: 24),
-          const Text('頭像顏色', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          Text(AppStrings.avatarColor,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 12,
@@ -109,30 +132,171 @@ class ProfilePage extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: const Text('編輯個人資料'),
+        title: Text(AppStrings.editProfile),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nickCtrl, decoration: const InputDecoration(labelText: '暱稱')),
+            TextField(controller: nickCtrl, decoration: InputDecoration(labelText: AppStrings.nickname)),
             const SizedBox(height: 12),
-            TextField(controller: bioCtrl, maxLines: 3, decoration: const InputDecoration(labelText: '自我介紹')),
+            TextField(controller: bioCtrl, maxLines: 3, decoration: InputDecoration(labelText: AppStrings.bio)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppStrings.cancel)),
           ElevatedButton(
             onPressed: () {
               state.updateProfile(nickname: nickCtrl.text, bio: bioCtrl.text);
               Navigator.pop(ctx);
             },
-            child: const Text('儲存'),
+            child: Text(AppStrings.save),
           ),
         ],
       ),
     );
   }
 
+  /// 頭像操作:拍照、從相簿選,已有頭像時可移除。
+  Future<void> _avatarActions(BuildContext context, AppState state) async {
+    final hasAvatar = state.profile.hasAvatar;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Row(
+                  children: [
+                    Text(AppStrings.setAvatar,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined, color: AppColors.primary),
+                title: Text(AppStrings.takePhoto),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAvatar(context, state, ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+                title: Text(AppStrings.chooseFromGallery),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickAvatar(context, state, ImageSource.gallery);
+                },
+              ),
+              if (hasAvatar)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: AppColors.danger),
+                  title: Text(AppStrings.removeAvatar, style: const TextStyle(color: AppColors.danger)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    state.removeAvatar();
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 取得頭像圖片並上傳。
+  Future<void> _pickAvatar(BuildContext context, AppState state, ImageSource source) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: source,
+        maxWidth: 800, // 頭像不需要大圖
+        imageQuality: 85,
+      );
+      if (file == null) return; // 使用者取消
+      await state.uploadAvatar(file.path);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(AppStrings.photoFailed)));
+    }
+  }
+
+  /// 新增照片:可拍照、從相簿選,或用 emoji 佔位。
   Future<void> _addPhoto(BuildContext context, AppState state) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.background,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Row(
+                  children: [
+                    Text(AppStrings.pickPhoto,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  ],
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined, color: AppColors.primary),
+                title: Text(AppStrings.takePhoto),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(context, state, ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+                title: Text(AppStrings.chooseFromGallery),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickImage(context, state, ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.emoji_emotions_outlined, color: AppColors.accent),
+                title: Text(AppStrings.useEmoji),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickEmoji(context, state);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 從相機或相簿取得照片。
+  Future<void> _pickImage(BuildContext context, AppState state, ImageSource source) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+      if (file == null) return; // 使用者取消
+      state.addPhotoFile(file.path);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(AppStrings.photoFailed)));
+    }
+  }
+
+  /// 用 emoji 當佔位照片。
+  Future<void> _pickEmoji(BuildContext context, AppState state) async {
     const emojis = ['🌿', '🏞️', '☕', '🏃', '🎸', '🍜', '📸', '⛰️', '🏐', '🎯', '🌊', '🚴'];
     await showModalBottomSheet<void>(
       context: context,
@@ -144,14 +308,17 @@ class ProfilePage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('挑一張照片(用圖示代表)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text(AppStrings.useEmoji, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
             Wrap(
               spacing: 12, runSpacing: 12,
               children: [
                 for (final e in emojis)
                   GestureDetector(
-                    onTap: () { state.addPhoto(e); Navigator.pop(ctx); },
+                    onTap: () {
+                      state.addPhoto(e);
+                      Navigator.pop(ctx);
+                    },
                     child: Container(
                       width: 56, height: 56,
                       alignment: Alignment.center,
@@ -174,6 +341,7 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -186,17 +354,20 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         ],
       ),
     );
   }
 }
 
+/// 照片格線。實際照片用 Image.file 顯示,emoji 用文字顯示。
+/// 點擊放大預覽,長按刪除。
 class _PhotoGrid extends StatelessWidget {
   const _PhotoGrid({required this.photos, required this.onRemove});
-  final List<String> photos;
+  final List<ProfilePhoto> photos;
   final ValueChanged<int> onRemove;
+
   @override
   Widget build(BuildContext context) {
     if (photos.isEmpty) {
@@ -204,24 +375,103 @@ class _PhotoGrid extends StatelessWidget {
         height: 90,
         alignment: Alignment.center,
         decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
-        child: Text('還沒有照片,點右上角新增', style: TextStyle(color: AppColors.textSecondary)),
+        child: Text(AppStrings.noPhotos, style: const TextStyle(color: AppColors.textSecondary)),
       );
     }
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: photos.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1,
-      ),
-      itemBuilder: (context, i) => GestureDetector(
-        onLongPress: () => onRemove(i),
-        child: Container(
-          alignment: Alignment.center,
-          decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(14)),
-          child: Text(photos[i], style: const TextStyle(fontSize: 30)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: photos.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 4, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1,
+          ),
+          itemBuilder: (context, i) => GestureDetector(
+            onTap: () => _preview(context, photos[i]),
+            onLongPress: () => onRemove(i),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: _PhotoTile(photo: photos[i]),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(AppStrings.longPressToRemove,
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+      ],
+    );
+  }
+
+  /// 點擊放大預覽(僅圖片,emoji 不預覽)。
+  void _preview(BuildContext context, ProfilePhoto photo) {
+    if (!photo.isImage) return;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: GestureDetector(
+          onTap: () => Navigator.pop(ctx),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: photo.isRemote
+                ? Image.network(photo.value, fit: BoxFit.contain)
+                : Image.file(File(photo.value), fit: BoxFit.contain),
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// 單張照片格。遠端照片用 Image.network,本機檔案(上傳中)用 Image.file,
+/// emoji 用文字。
+class _PhotoTile extends StatelessWidget {
+  const _PhotoTile({required this.photo});
+  final ProfilePhoto photo;
+
+  Widget get _broken => Container(
+        color: AppColors.soft,
+        alignment: Alignment.center,
+        child: const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    if (photo.isRemote) {
+      return Image.network(
+        photo.value,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return Container(color: AppColors.soft);
+        },
+        errorBuilder: (context, _, _) => _broken,
+      );
+    }
+    if (photo.isFile) {
+      // 上傳中的暫時狀態,疊一個進度指示。
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(File(photo.value), fit: BoxFit.cover, errorBuilder: (context, _, _) => _broken),
+          Container(
+            color: Colors.black26,
+            alignment: Alignment.center,
+            child: const SizedBox(
+              width: 20, height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+          ),
+        ],
+      );
+    }
+    return Container(
+      color: AppColors.soft,
+      alignment: Alignment.center,
+      child: Text(photo.value, style: const TextStyle(fontSize: 30)),
     );
   }
 }

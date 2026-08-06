@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 
@@ -36,8 +37,8 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
   void initState() {
     super.initState();
     final a = widget.relatedActivity;
-    _title = TextEditingController(text: a == null ? '' : '一起去「${a.title}」');
-    _content = TextEditingController(text: a == null ? '' : '${a.city} · ${a.venue},有興趣的一起來!');
+    _title = TextEditingController(text: a == null ? '' : AppStrings.togetherGo(a.title));
+    _content = TextEditingController(text: a == null ? '' : AppStrings.recruitmentContentPrefill(a.city, a.venue));
     if (a != null) _cost.text = a.cost.toString();
   }
 
@@ -62,7 +63,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
         );
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('招募已發布!到招募版看看吧 📣')),
+      SnackBar(content: Text(AppStrings.publishedSnack)),
     );
   }
 
@@ -91,23 +92,23 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text('發起招募', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Text(AppStrings.startRecruitment, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                 const SizedBox(height: 4),
-                Text('填寫標題與內容,揪對活動有興趣的人一起!', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                Text(AppStrings.recruitmentEditorSubtitle, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 const SizedBox(height: 18),
-                _Label('標題'),
+                _Label(AppStrings.fieldTitle),
                 TextFormField(
                   controller: _title,
-                  decoration: const InputDecoration(hintText: '例如:週末陽明山健行揪團'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? '請輸入標題' : null,
+                  decoration: InputDecoration(hintText: AppStrings.titleHint),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? AppStrings.titleRequired : null,
                 ),
                 const SizedBox(height: 14),
-                _Label('內容'),
+                _Label(AppStrings.fieldContent),
                 TextFormField(
                   controller: _content,
                   maxLines: 4,
-                  decoration: const InputDecoration(hintText: '說明集合時間、路線、注意事項…'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? '請輸入內容' : null,
+                  decoration: InputDecoration(hintText: AppStrings.contentHint),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? AppStrings.contentRequired : null,
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -117,15 +118,15 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _Label('招募人數'),
+                          _Label(AppStrings.headcountField),
                           TextFormField(
                             controller: _headcount,
                             keyboardType: TextInputType.number,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(suffixText: '人'),
+                            decoration: InputDecoration(suffixText: AppStrings.peopleUnit),
                             validator: (v) {
                               final n = int.tryParse(v ?? '');
-                              if (n == null || n < 1) return '至少 1 人';
+                              if (n == null || n < 1) return AppStrings.atLeastOnePerson;
                               return null;
                             },
                           ),
@@ -137,7 +138,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _Label('每人花費'),
+                          _Label(AppStrings.costPerPerson),
                           TextFormField(
                             controller: _cost,
                             keyboardType: TextInputType.number,
@@ -150,13 +151,13 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                _Label('性別限制'),
+                _Label(AppStrings.genderLimit),
                 Wrap(
                   spacing: 8,
                   children: [
                     for (final g in GenderPref.values)
                       ChoiceChip(
-                        label: Text(g.label),
+                        label: Text(AppStrings.genderLabel(g)),
                         selected: _gender == g,
                         onSelected: (_) => setState(() => _gender = g),
                         selectedColor: AppColors.primary,
@@ -174,7 +175,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                   child: ElevatedButton.icon(
                     onPressed: _submit,
                     icon: const Icon(Icons.campaign),
-                    label: const Text('發布招募'),
+                    label: Text(AppStrings.publishRecruitment),
                   ),
                 ),
               ],

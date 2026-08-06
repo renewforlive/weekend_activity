@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
+import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
@@ -16,7 +17,7 @@ class BookedPage extends StatelessWidget {
     final bookings = state.bookings;
     final totalCost = bookings.fold<int>(0, (sum, b) => sum + b.cost);
     return Scaffold(
-      appBar: AppBar(title: const Text('已預約行程')),
+      appBar: AppBar(title: Text(AppStrings.bookedTitle)),
       body: bookings.isEmpty
           ? _empty()
           : Column(
@@ -42,8 +43,8 @@ class BookedPage extends StatelessWidget {
         children: [
           const Icon(Icons.bookmark_border, size: 56, color: AppColors.textSecondary),
           const SizedBox(height: 12),
-          Text('還沒有預約,\n排入活動或加入招募後會出現在這裡!',
-              textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, height: 1.5)),
+          Text(AppStrings.bookedEmpty,
+              textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
         ],
       ),
     );
@@ -65,9 +66,9 @@ class _Summary extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _stat('預約數', '$count'),
+          _stat(AppStrings.bookingCount, '$count'),
           Container(width: 1, height: 36, color: Colors.white24),
-          _stat('預估花費', 'NT\$ $totalCost'),
+          _stat(AppStrings.estimatedCost, 'NT\$ $totalCost'),
         ],
       ),
     );
@@ -93,7 +94,7 @@ class _BookingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _sourceColor(booking.source);
-    final dateStr = booking.date == null ? '時間待定' : AppDate.monthDayWeek(booking.date!);
+    final dateStr = booking.date == null ? AppStrings.dateTBD : AppDate.monthDayWeek(booking.date!);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -116,7 +117,7 @@ class _BookingCard extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
-                        child: Text(booking.source.label, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+                        child: Text(AppStrings.bookingSourceLabel(booking.source), style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
                       ),
                       const SizedBox(width: 8),
                       Text(dateStr, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
@@ -129,7 +130,7 @@ class _BookingCard extends StatelessWidget {
                 ],
               ),
             ),
-            Text(booking.cost == 0 ? '免費' : 'NT\$ ${booking.cost}',
+            Text(AppStrings.costLabel(booking.cost),
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: booking.cost == 0 ? AppColors.primaryDark : AppColors.accent)),
           ],
         ),

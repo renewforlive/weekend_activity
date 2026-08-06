@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../data/app_state.dart';
+import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import 'activities_page.dart';
 import 'booked_page.dart';
@@ -17,6 +20,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _index = 0;
+  String? _shownError;
 
   static const _pages = [
     ActivitiesPage(),
@@ -26,8 +30,33 @@ class _HomePageState extends State<HomePage> {
     ProfilePage(),
   ];
 
+  /// 統一顯示同步錯誤,避免各頁重複處理。
+  void _watchSyncError(AppState state) {
+    final err = state.syncError;
+    if (err == null || err == _shownError) return;
+    _shownError = err;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(err),
+          backgroundColor: AppColors.danger,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: '關閉',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ),
+      );
+      state.clearSyncError();
+      _shownError = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    _watchSyncError(context.watch<AppState>());
     return Scaffold(
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: NavigationBarTheme(
@@ -46,12 +75,12 @@ class _HomePageState extends State<HomePage> {
           height: 68,
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.explore_outlined), selectedIcon: Icon(Icons.explore, color: AppColors.primary), label: '活動'),
-            NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note, color: AppColors.primary), label: '行程'),
-            NavigationDestination(icon: Icon(Icons.groups_outlined), selectedIcon: Icon(Icons.groups, color: AppColors.primary), label: '招募'),
-            NavigationDestination(icon: Icon(Icons.bookmark_outline), selectedIcon: Icon(Icons.bookmark, color: AppColors.primary), label: '已預約'),
-            NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person, color: AppColors.primary), label: '個人'),
+          destinations: [
+            NavigationDestination(icon: const Icon(Icons.explore_outlined), selectedIcon: const Icon(Icons.explore, color: AppColors.primary), label: AppStrings.navActivities),
+            NavigationDestination(icon: const Icon(Icons.event_note_outlined), selectedIcon: const Icon(Icons.event_note, color: AppColors.primary), label: AppStrings.navSchedule),
+            NavigationDestination(icon: const Icon(Icons.groups_outlined), selectedIcon: const Icon(Icons.groups, color: AppColors.primary), label: AppStrings.navRecruitment),
+            NavigationDestination(icon: const Icon(Icons.bookmark_outline), selectedIcon: const Icon(Icons.bookmark, color: AppColors.primary), label: AppStrings.navBooked),
+            NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person, color: AppColors.primary), label: AppStrings.navProfile),
           ],
         ),
       ),
