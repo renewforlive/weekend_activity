@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
 import '../widgets/recruitment_editor.dart';
+import '../widgets/require_sign_in.dart';
 
 /// 招募討論版:瀏覽揪團貼文、加入/退出、發起新招募。
 class RecruitmentPage extends StatelessWidget {
@@ -19,7 +20,7 @@ class RecruitmentPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(AppStrings.recruitmentTitle)),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showRecruitmentEditor(context),
+        onPressed: () => _startRecruitment(context),
         icon: const Icon(Icons.campaign),
         label: Text(AppStrings.startRecruitment),
       ),
@@ -55,6 +56,19 @@ class RecruitmentPage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 發起招募。未登入時先引導登入,登入成功才開啟編輯表單。
+Future<void> _startRecruitment(BuildContext context) async {
+  if (!await requireSignIn(context)) return;
+  if (!context.mounted) return;
+  showRecruitmentEditor(context);
+}
+
+/// 加入招募。未登入時先引導登入。
+Future<void> _join(BuildContext context, AppState state, RecruitmentPost post) async {
+  if (!await requireSignIn(context)) return;
+  await state.toggleJoin(post);
 }
 
 class _PostCard extends StatelessWidget {
@@ -142,7 +156,7 @@ class _PostCard extends StatelessWidget {
                       style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryDark),
                     )
                   : ElevatedButton.icon(
-                      onPressed: full ? null : () => state.toggleJoin(post),
+                      onPressed: full ? null : () => _join(context, state, post),
                       icon: Icon(full ? Icons.block : Icons.group_add),
                       label: Text(full ? AppStrings.full : AppStrings.join),
                     ),

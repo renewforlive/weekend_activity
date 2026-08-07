@@ -9,6 +9,7 @@ import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../widgets/profile_avatar.dart';
+import '../widgets/account_section.dart';
 
 /// 個人頁:頭像、照片(可拍照/選相簿)、暱稱、自介、是否參與過活動、開啟招募次數。
 class ProfilePage extends StatelessWidget {
@@ -119,6 +120,8 @@ class ProfilePage extends StatelessWidget {
                 ),
             ],
           ),
+          const SizedBox(height: 24),
+          const AccountSection(),
         ],
       ),
     );

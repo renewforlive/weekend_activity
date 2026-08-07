@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
 import '../services/attraction_asset_service.dart';
+import '../services/auth_service.dart';
 import '../services/culture_api_service.dart';
 import '../services/notification_service.dart';
 import '../services/profile_repository.dart';
@@ -22,6 +26,22 @@ class AppState extends ChangeNotifier {
     loadActivities();
     loadCitySpots();
     loadRemoteData();
+    _listenAuthChanges();
+  }
+
+  StreamSubscription<AuthState>? _authSub;
+
+  /// 監聽登入狀態變化,讓帳號區塊等 UI 即時反映。
+  void _listenAuthChanges() {
+    _authSub = SupabaseConfig.client.auth.onAuthStateChange.listen((_) {
+      notifyListeners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
   }
 
   final CultureApiService _cultureApi = CultureApiService();
@@ -35,6 +55,15 @@ class AppState extends ChangeNotifier {
 
   /// 目前登入使用者的 id。
   String? get currentUserId => SupabaseConfig.userId;
+
+  /// 是否已用 email 登入(可發起/加入招募)。
+  ///
+  /// 包一層 getter 而非讓 UI 直接讀 AuthService,是為了讓登入狀態
+  /// 變化能透過 notifyListeners 觸發畫面更新。
+  bool get isAuthenticated => AuthService.instance.isAuthenticated;
+
+  /// 目前帳號的 email(訪客模式為 null)。
+  String? get userEmail => AuthService.instance.email;
 
   bool _syncing = false;
   String? _syncError;
