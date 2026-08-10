@@ -65,6 +65,8 @@ flutter:
 
   assets:
     - assets/data/attractions.json
+    - assets/data/trails.json
+    - assets/data/camping.json
 
   # To add assets to your application, add an assets section, like this:
   # assets:

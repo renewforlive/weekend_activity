@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
@@ -9,6 +9,8 @@ import '../utils/date_format.dart';
 import '../widgets/recruitment_editor.dart';
 import '../widgets/schedule_time_picker.dart';
 import 'travel_spot_detail_page.dart';
+import 'trails_list.dart';
+import 'campings_list.dart';
 
 /// 活動頁:選地區。全台縣市皆可切換景點(本地資料)/展覽(文化部)。
 class ActivitiesPage extends StatelessWidget {
@@ -51,9 +53,15 @@ class ActivitiesPage extends StatelessWidget {
           ),
         ),
       ),
-      body: state.section == ActivitySection.attraction
-          ? const _AttractionsList()
-          : _ExhibitionList(activities: state.activitiesForSelectedCity),
+      body: IndexedStack(
+        index: state.section.index,
+        children: [
+          const _AttractionsList(),
+          _ExhibitionList(activities: state.activitiesForSelectedCity),
+          const TrailsList(),
+          const CampingsList(),
+        ],
+      ),
     );
   }
 }
@@ -70,6 +78,10 @@ class _SectionTabs extends StatelessWidget {
         _tab(AppStrings.sectionAttraction, ActivitySection.attraction),
         const SizedBox(width: 8),
         _tab(AppStrings.sectionExhibition, ActivitySection.exhibition),
+        const SizedBox(width: 8),
+        _tab(AppStrings.sectionTrail, ActivitySection.trail),
+        const SizedBox(width: 8),
+        _tab(AppStrings.sectionCamping, ActivitySection.camping),
       ],
     );
   }
@@ -314,24 +326,49 @@ class _ErrorRetry extends StatelessWidget {
 }
 
 // ===== 展覽列表(文化部)=====
-class _ExhibitionList extends StatelessWidget {
+class _ExhibitionList extends StatefulWidget {
   const _ExhibitionList({required this.activities});
   final List<Activity> activities;
 
   @override
+  State<_ExhibitionList> createState() => _ExhibitionListState();
+}
+
+class _ExhibitionListState extends State<_ExhibitionList> {
+  final ScrollController _scroll = ScrollController();
+  String? _lastCity;
+
+  /// 換地區時把列表捲回最上方。
+  void _resetScrollIfCityChanged(String city) {
+    if (_lastCity != null && _lastCity != city && _scroll.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scroll.hasClients) _scroll.jumpTo(0);
+      });
+    }
+    _lastCity = city;
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (activities.isEmpty) {
+    _resetScrollIfCityChanged(context.watch<AppState>().selectedCity);
+    if (widget.activities.isEmpty) {
       return _EmptyHint(text: AppStrings.activitiesEmpty);
     }
     return ListView.separated(
+      controller: _scroll,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: activities.length,
+      itemCount: widget.activities.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, i) => ActivityCard(activity: activities[i]),
+      itemBuilder: (context, i) => ActivityCard(activity: widget.activities[i]),
     );
   }
 }
-
 class _CityDropdown extends StatelessWidget {
   const _CityDropdown({required this.value, required this.cities, required this.onChanged});
   final String value;

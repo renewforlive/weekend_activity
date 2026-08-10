@@ -49,6 +49,41 @@ class AppStrings {
   static String get spotsError => _pick('無法載入台北景點,請稍後再試。', 'Failed to load Taipei attractions. Try again later.');
   static String get spotsEmpty => _pick('目前沒有景點資料。', 'No attractions right now.');
   static String get loadingMore => _pick('載入更多…', 'Loading more…');
+
+  // ===== 登山步道 =====
+  static String get sectionTrail => _pick('登山步道', 'Trails');
+  static String get trailsError => _pick('無法載入步道資料', 'Failed to load trails.');
+  static String get trailsEmpty => _pick('這個縣市沒有相關資料', 'No trails here.');
+  static String get trailAltitude => _pick('海拔', 'Altitude');
+  static String get retry => _pick('重試', 'Retry');
+  static String get trailLength => _pick('長度', 'Length');
+  static String get trailDuration => _pick('建議時間', 'Duration');
+  static String get trailBestSeason => _pick('最佳季節', 'Best season');
+  static String get trailPavement => _pick('路面', 'Surface');
+  static String get trailSystem => _pick('步道系統', 'System');
+  static String get trailAdmin => _pick('管理單位', 'Managed by');
+  static String get trailNeedPermit => _pick('進入需申請入山証', 'Permit required');
+  static String get trailGuide => _pick('步道介紹', 'About');
+  static String get trailOfficialSite => _pick('查看官方頁面', 'Official page');
+
+  // ===== 露營場 =====
+  static String get sectionCamping => _pick('露營場', 'Camping');
+  static String get campingError => _pick('無法載入露營場資料', 'Failed to load camping sites.');
+  static String get campingEmpty => _pick('這個縣市沒有相關資料', 'No camping sites here.');
+  static String get campingLegalOnly => _pick('只看合法營場', 'Legal only');
+  static String get campingAddress => _pick('地址', 'Address');
+  static String get campingStatus => _pick('營業狀態', 'Status');
+  static String get campingViolation => _pick('違反法規', 'Violation');
+  static String get campingIndigenous => _pick('位於原住民族地區', 'Indigenous area');
+  static String get campingSetupTime => _pick('設置時間', 'Established');
+  static String get campingPhone => _pick('聯絡電話', 'Phone');
+  static String get campingOfficialSite => _pick('查看官方頁面', 'Official page');
+  static String get campingLegalNote =>
+      _pick('合法露營場已通過相關法規查核。', 'This site complies with regulations.');
+  static String get campingIllegalNote =>
+      _pick('這座營場違反相關法規,前往前請自行評估風險。',
+          'This site violates regulations. Please assess the risk yourself.');
+  static String get pickHikingDate => _pick('選擇要去的日期', 'Pick a date');
   static String get noMoreData => _pick('沒有更多了', 'No more');
   static String get open => _pick('開放中', 'Open');
   static String get closed => _pick('未開放', 'Closed');
@@ -161,6 +196,10 @@ class AppStrings {
         return _pick('講座學習', 'Learning');
       case ActivityCategory.travel:
         return _pick('旅遊景點', 'Attraction');
+      case ActivityCategory.hiking:
+        return _pick('登山步道', 'Hiking');
+      case ActivityCategory.camping:
+        return _pick('露營場', 'Camping');
     }
   }
 

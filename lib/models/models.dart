@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'hiking_trail.dart';
+import 'camping_site.dart';
+
 /// 活动分类(附带代表色与图标,供列表卡片使用)。
 enum ActivityCategory {
   outdoor('戶外踏青', Icons.hiking, Color(0xFF3BB273)),
@@ -8,7 +11,9 @@ enum ActivityCategory {
   market('市集文創', Icons.storefront, Color(0xFFE5896B)),
   food('美食聚會', Icons.restaurant, Color(0xFFEBA83A)),
   learning('講座學習', Icons.school, Color(0xFF4AA8D8)),
-  travel('旅遊景點', Icons.travel_explore, Color(0xFF2AA9A0));
+  travel('旅遊景點', Icons.travel_explore, Color(0xFF2AA9A0)),
+  hiking('登山步道', Icons.terrain, Color(0xFF5B8C5A)),
+  camping('露營場', Icons.cabin, Color(0xFF8B6F47));
 
   const ActivityCategory(this.label, this.icon, this.color);
   final String label;
@@ -65,6 +70,43 @@ class Activity {
 
   /// 是否為景點(無固定時間,可自由選排入時間)。
   bool get isSpot => category == ActivityCategory.travel;
+
+  /// 由登山步道建立活動。步道沒有固定日期,需帶使用者選定的日期。
+  factory Activity.fromTrail(HikingTrail trail, DateTime date) {
+    return Activity(
+      id: 'trail_${trail.id}',
+      title: trail.name,
+      city: trail.city,
+      venue: trail.location,
+      date: date,
+      category: ActivityCategory.hiking,
+      description: trail.guide,
+      cost: 0,
+    );
+  }
+
+  /// 是否為登山步道(無固定時間,由使用者選擇時間)。
+  bool get isTrail => category == ActivityCategory.hiking;
+
+  /// 由露營場建立活動。營場沒有固定日期,需帶使用者選定的日期。
+  factory Activity.fromCamping(CampingSite site, DateTime date) {
+    return Activity(
+      id: 'camping_${site.id}',
+      title: site.name,
+      city: site.city,
+      venue: site.displayAddress,
+      date: date,
+      category: ActivityCategory.camping,
+      // 法規狀態是選營場的關鍵資訊,帶進行程以便日後回顧。
+      description: site.violation.isEmpty
+          ? site.legality.label
+          : '${site.legality.label}（${site.violation}）',
+      cost: 0,
+    );
+  }
+
+  /// 是否為露營場(無固定時間,由使用者選擇時間)。
+  bool get isCamping => category == ActivityCategory.camping;
 }
 
 /// 行程项目:某个活动被排入行程,可设定提醒。

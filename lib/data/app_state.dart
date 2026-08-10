@@ -1,11 +1,15 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
 import '../services/attraction_asset_service.dart';
+import '../models/hiking_trail.dart';
+import '../models/camping_site.dart';
 import '../services/auth_service.dart';
+import '../services/trail_asset_service.dart';
+import '../services/camping_asset_service.dart';
 import '../services/culture_api_service.dart';
 import '../services/notification_service.dart';
 import '../services/profile_repository.dart';
@@ -16,7 +20,7 @@ import '../services/taipei_travel_service.dart';
 import 'mock_data.dart';
 
 /// 活動頁的類別:景點(全台,本地資料)/ 展覽(文化部 API)。
-enum ActivitySection { attraction, exhibition }
+enum ActivitySection { attraction, exhibition, trail, camping }
 
 /// 全 App 集中狀態:活動、行程、招募、預約、個人資料。
 /// 無後端,資料存於記憶體(重啟即重置),提醒透過 NotificationService 排程。
@@ -49,6 +53,8 @@ class AppState extends ChangeNotifier {
   // ignore: unused_field
   final TaipeiTravelService _taipeiApi = TaipeiTravelService();
   final AttractionAssetService _attractionAsset = AttractionAssetService();
+  final TrailAssetService _trailAsset = TrailAssetService();
+  final CampingAssetService _campingAsset = CampingAssetService();
   final ProfileRepository _profileRepo = ProfileRepository();
   final RecruitmentRepository _recruitmentRepo = RecruitmentRepository();
   final ScheduleRepository _scheduleRepo = ScheduleRepository();
@@ -155,12 +161,16 @@ class AppState extends ChangeNotifier {
   void selectSection(ActivitySection s) {
     _section = s;
     if (s == ActivitySection.attraction) loadCitySpots();
+    if (s == ActivitySection.trail) loadCityTrails();
+    if (s == ActivitySection.camping) loadCityCampings();
     notifyListeners();
   }
 
   void selectCity(String city) {
     _selectedCity = city;
     if (_section == ActivitySection.attraction) loadCitySpots();
+    if (_section == ActivitySection.trail) loadCityTrails();
+    if (_section == ActivitySection.camping) loadCityCampings();
     notifyListeners();
   }
 
@@ -204,6 +214,87 @@ class AppState extends ChangeNotifier {
     final next = _spotVisible + _spotPageSize;
     _spotVisible = next < _citySpots.length ? next : _citySpots.length;
     notifyListeners();
+  }
+
+  // ===== 登山步道(本地 asset 資料,依縣市顯示)=====
+  // 只涵蓋 15 個縣市,沒有步道的縣市會顯示空狀態。
+  List<HikingTrail> _cityTrails = [];
+  bool _loadingTrails = false;
+  String? _trailsError;
+
+  /// 目前縣市的登山步道(依難度排序)。
+  List<HikingTrail> get cityTrails => List.unmodifiable(_cityTrails);
+  bool get isLoadingTrails => _loadingTrails;
+  String? get trailsError => _trailsError;
+
+  /// 載入目前縣市的登山步道。
+  Future<void> loadCityTrails() async {
+    _loadingTrails = true;
+    _trailsError = null;
+    notifyListeners();
+    try {
+      _cityTrails = await _trailAsset.byCity(_selectedCity);
+    } catch (e) {
+      _trailsError = '無法載入步道資料,請稍後再試';
+      _cityTrails = [];
+    } finally {
+      _loadingTrails = false;
+      notifyListeners();
+    }
+  }
+
+  /// 把登山步道排入行程。步道沒有固定日期,由使用者指定。
+  Future<void> addTrailToSchedule(HikingTrail trail, DateTime scheduledAt) async {
+    await addToSchedule(Activity.fromTrail(trail, scheduledAt));
+  }
+
+  /// 把露營場排入行程。與步道一樣需要使用者指定日期。
+  Future<void> addCampingToSchedule(CampingSite site, DateTime scheduledAt) async {
+    await addToSchedule(Activity.fromCamping(site, scheduledAt));
+  }
+
+  // ===== 露營場(本地 asset 資料,依縣市顯示)=====
+  List<CampingSite> _cityCampings = [];
+  bool _loadingCampings = false;
+  String? _campingsError;
+  bool _legalCampingOnly = false;
+
+  /// 目前縣市的露營場。開啟只看合法時會過濾掉違規營場。
+  List<CampingSite> get cityCampings {
+    if (!_legalCampingOnly) return List.unmodifiable(_cityCampings);
+    return List.unmodifiable(
+      _cityCampings.where((s) => s.legality == CampingLegality.legal),
+    );
+  }
+
+  bool get isLoadingCampings => _loadingCampings;
+  String? get campingsError => _campingsError;
+  bool get legalCampingOnly => _legalCampingOnly;
+
+  /// 目前縣市的合法營場數量,用於提示使用者篩選後還剩多少。
+  int get legalCampingCount =>
+      _cityCampings.where((s) => s.legality == CampingLegality.legal).length;
+
+  /// 切換「只看合法營場」。
+  void toggleLegalCampingOnly() {
+    _legalCampingOnly = !_legalCampingOnly;
+    notifyListeners();
+  }
+
+  /// 載入目前縣市的露營場。
+  Future<void> loadCityCampings() async {
+    _loadingCampings = true;
+    _campingsError = null;
+    notifyListeners();
+    try {
+      _cityCampings = await _campingAsset.byCity(_selectedCity);
+    } catch (e) {
+      _campingsError = '無法載入露營場資料,請稍後再試';
+      _cityCampings = [];
+    } finally {
+      _loadingCampings = false;
+      notifyListeners();
+    }
   }
 
   /// 從文化部開放資料載入藝文活動(近三個月);失敗則保留假資料當後備。
