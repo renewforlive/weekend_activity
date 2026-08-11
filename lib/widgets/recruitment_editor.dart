@@ -6,20 +6,31 @@ import '../data/app_state.dart';
 import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
+import '../utils/date_format.dart';
 
-/// 彈出「發起招募」表單(討論版發文):標題、內容、人數、性別、花費。
-Future<void> showRecruitmentEditor(BuildContext context, {Activity? relatedActivity}) {
+/// 彈出「發起招募」表單:標題、內容、人數、性別、花費、集合資訊。
+///
+/// 傳入 [editing] 時為修改模式(只有發起者會走到這裡)。
+Future<void> showRecruitmentEditor(
+  BuildContext context, {
+  Activity? relatedActivity,
+  RecruitmentPost? editing,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => _RecruitmentEditorSheet(relatedActivity: relatedActivity),
+    builder: (_) => _RecruitmentEditorSheet(
+      relatedActivity: relatedActivity,
+      editing: editing,
+    ),
   );
 }
 
 class _RecruitmentEditorSheet extends StatefulWidget {
-  const _RecruitmentEditorSheet({this.relatedActivity});
+  const _RecruitmentEditorSheet({this.relatedActivity, this.editing});
   final Activity? relatedActivity;
+  final RecruitmentPost? editing;
 
   @override
   State<_RecruitmentEditorSheet> createState() => _RecruitmentEditorSheetState();
@@ -29,17 +40,41 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _title;
   late final TextEditingController _content;
-  final _headcount = TextEditingController(text: '4');
-  final _cost = TextEditingController(text: '0');
+  late final TextEditingController _headcount;
+  late final TextEditingController _cost;
+  late final TextEditingController _meetingPoint;
+  late final TextEditingController _contact;
   GenderPref _gender = GenderPref.any;
+  DateTime? _meetingTime;
+  bool _saving = false;
+
+  bool get _isEditing => widget.editing != null;
 
   @override
   void initState() {
     super.initState();
+    final post = widget.editing;
     final a = widget.relatedActivity;
-    _title = TextEditingController(text: a == null ? '' : AppStrings.togetherGo(a.title));
-    _content = TextEditingController(text: a == null ? '' : AppStrings.recruitmentContentPrefill(a.city, a.venue));
-    if (a != null) _cost.text = a.cost.toString();
+
+    if (post != null) {
+      // 修改模式:帶入現有內容。
+      _title = TextEditingController(text: post.title);
+      _content = TextEditingController(text: post.content);
+      _headcount = TextEditingController(text: post.headcount.toString());
+      _cost = TextEditingController(text: post.cost.toString());
+      _meetingPoint = TextEditingController(text: post.meetingPoint);
+      _contact = TextEditingController(text: post.contactInfo);
+      _gender = post.genderPref;
+      _meetingTime = post.meetingTime;
+    } else {
+      _title = TextEditingController(text: a == null ? '' : AppStrings.togetherGo(a.title));
+      _content = TextEditingController(
+          text: a == null ? '' : AppStrings.recruitmentContentPrefill(a.city, a.venue));
+      _headcount = TextEditingController(text: '4');
+      _cost = TextEditingController(text: a?.cost.toString() ?? '0');
+      _meetingPoint = TextEditingController();
+      _contact = TextEditingController();
+    }
   }
 
   @override
@@ -48,23 +83,80 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
     _content.dispose();
     _headcount.dispose();
     _cost.dispose();
+    _meetingPoint.dispose();
+    _contact.dispose();
     super.dispose();
   }
 
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    context.read<AppState>().createRecruitment(
-          title: _title.text.trim(),
-          content: _content.text.trim(),
-          headcount: int.parse(_headcount.text),
-          genderPref: _gender,
-          cost: int.tryParse(_cost.text) ?? 0,
-          relatedActivity: widget.relatedActivity,
-        );
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppStrings.publishedSnack)),
+  /// 選集合時間。與活動的出行時間分開,通常早於出行時間。
+  Future<void> _pickMeetingTime() async {
+    final now = DateTime.now();
+    final base = _meetingTime ?? widget.editing?.relatedActivity?.date ?? now;
+    final initial = base.isBefore(now) ? now : base;
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: now.subtract(const Duration(days: 1)),
+      lastDate: now.add(const Duration(days: 365)),
     );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null) return;
+
+    setState(() {
+      _meetingTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    });
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+
+    final state = context.read<AppState>();
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    final post = widget.editing;
+    if (post != null) {
+      final ok = await state.updateRecruitment(
+        recruitmentId: post.id,
+        title: _title.text.trim(),
+        content: _content.text.trim(),
+        headcount: int.parse(_headcount.text),
+        genderPref: _gender,
+        cost: int.tryParse(_cost.text) ?? 0,
+        meetingPoint: _meetingPoint.text.trim(),
+        meetingTime: _meetingTime,
+        contactInfo: _contact.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() => _saving = false);
+      if (!ok) return; // 錯誤訊息由 AppState 的 syncError 統一顯示
+      navigator.pop();
+      messenger.showSnackBar(SnackBar(content: Text(AppStrings.recruitmentUpdated)));
+      return;
+    }
+
+    await state.createRecruitment(
+      title: _title.text.trim(),
+      content: _content.text.trim(),
+      headcount: int.parse(_headcount.text),
+      genderPref: _gender,
+      cost: int.tryParse(_cost.text) ?? 0,
+      relatedActivity: widget.relatedActivity,
+      meetingPoint: _meetingPoint.text.trim(),
+      meetingTime: _meetingTime,
+      contactInfo: _contact.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    navigator.pop();
+    messenger.showSnackBar(SnackBar(content: Text(AppStrings.publishedSnack)));
   }
 
   @override
@@ -92,7 +184,8 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(AppStrings.startRecruitment, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                Text(_isEditing ? AppStrings.editRecruitment : AppStrings.startRecruitment,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                 const SizedBox(height: 4),
                 Text(AppStrings.recruitmentEditorSubtitle, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
                 const SizedBox(height: 18),
@@ -169,13 +262,74 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                       ),
                   ],
                 ),
+                const SizedBox(height: 20),
+
+                // 集合資訊:只有已核准的成員與發起者看得到,可留空之後再補。
+                Row(
+                  children: [
+                    const Icon(Icons.lock_outline, size: 16, color: AppColors.textSecondary),
+                    const SizedBox(width: 6),
+                    Text(AppStrings.meetingInfoTitle,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(AppStrings.meetingInfoOptional,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                const SizedBox(height: 12),
+                _Label(AppStrings.meetingPointField),
+                TextFormField(
+                  controller: _meetingPoint,
+                  decoration: InputDecoration(hintText: AppStrings.meetingPointHint),
+                ),
+                const SizedBox(height: 14),
+                _Label(AppStrings.meetingTimeField),
+                InkWell(
+                  onTap: _pickMeetingTime,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InputDecorator(
+                    decoration: const InputDecoration(),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.schedule, size: 18, color: AppColors.primary),
+                        const SizedBox(width: 10),
+                        Text(
+                          _meetingTime == null
+                              ? AppStrings.meetingTimeHint
+                              : AppDate.monthDayWeekTime(_meetingTime!),
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: _meetingTime == null ? AppColors.textSecondary : AppColors.textPrimary,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (_meetingTime != null)
+                          GestureDetector(
+                            onTap: () => setState(() => _meetingTime = null),
+                            child: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _Label(AppStrings.contactField),
+                TextFormField(
+                  controller: _contact,
+                  decoration: InputDecoration(hintText: AppStrings.contactHint),
+                ),
                 const SizedBox(height: 22),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: _submit,
-                    icon: const Icon(Icons.campaign),
-                    label: Text(AppStrings.publishRecruitment),
+                    onPressed: _saving ? null : _submit,
+                    icon: _saving
+                        ? const SizedBox(
+                            width: 18, height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.campaign),
+                    label: Text(_isEditing ? AppStrings.saveRecruitment : AppStrings.publishRecruitment),
                   ),
                 ),
               ],

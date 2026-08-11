@@ -124,7 +124,57 @@ class ScheduleItem {
   bool reminderEnabled;
 }
 
-/// 招募贴文(讨论版):标题、内容、人数、性别、花费。
+/// 招募成員的審核狀態。
+enum MemberStatus {
+  /// 已申請,等發起者同意。仍佔用名額。
+  pending,
+
+  /// 發起者已同意。可看到集合資訊。
+  approved,
+
+  /// 發起者已拒絕。不佔名額。
+  rejected;
+
+  static MemberStatus fromText(String? raw) {
+    return switch (raw?.trim()) {
+      'approved' => MemberStatus.approved,
+      'rejected' => MemberStatus.rejected,
+      _ => MemberStatus.pending,
+    };
+  }
+}
+
+/// 招募成員:誰申請加入、帶幾個人、審核狀態。
+class RecruitmentMember {
+  const RecruitmentMember({
+    required this.userId,
+    required this.nickname,
+    required this.status,
+    required this.guestCount,
+  });
+
+  final String userId;
+
+  /// 顯示用暱稱。查不到時為「匿名」。
+  final String nickname;
+
+  final MemberStatus status;
+
+  /// 本人以外額外帶的人數。
+  final int guestCount;
+
+  /// 這筆申請佔用的名額(本人 + 帶的人)。
+  int get partySize => 1 + guestCount;
+
+  bool get isPending => status == MemberStatus.pending;
+  bool get isApproved => status == MemberStatus.approved;
+  bool get isRejected => status == MemberStatus.rejected;
+}
+
+/// 招募貼文(討論版):標題、內容、人數、性別、花費、集合資訊。
+///
+/// 名額在申請時就鎖住(待審核也算),發起者不需自行心算人數。
+/// 集合資訊只給已核准的成員與發起者看,避免未加入者打擾。
 class RecruitmentPost {
   RecruitmentPost({
     required this.id,
@@ -137,29 +187,90 @@ class RecruitmentPost {
     required this.author,
     required this.createdAt,
     this.relatedActivity,
-    Set<String>? joinedBy,
-  }) : joinedBy = joinedBy ?? <String>{};
+    this.meetingPoint = '',
+    this.meetingTime,
+    this.contactInfo = '',
+    List<RecruitmentMember>? members,
+  }) : members = members ?? <RecruitmentMember>[];
 
   final String id;
   final String authorId; // 發起人 user id
   final String title;
   final String content;
-  final int headcount; // 招募總人數
+  final int headcount; // 招募總人數(含發起人)
   final GenderPref genderPref;
   final int cost; // 預估每人花費
   final String author; // 發起人暱稱(顯示用)
   final DateTime createdAt;
   final Activity? relatedActivity; // 可選:關聯的活動
-  final Set<String> joinedBy; // 已加入者的 user id 集合
 
-  int get joinedCount => joinedBy.length;
-  bool get isFull => joinedCount >= headcount;
+  /// 集合地點。與活動地點分開,可能是車站、停車場等。
+  final String meetingPoint;
 
-  /// 指定使用者是否已加入。
-  bool isJoinedBy(String? userId) => userId != null && joinedBy.contains(userId);
+  /// 集合時間。與活動的出行時間分開(通常早於出行時間)。
+  final DateTime? meetingTime;
+
+  /// 聯絡方式,例如 LINE ID、電話。
+  final String contactInfo;
+
+  /// 所有成員紀錄(含被拒絕者,發起者需要看到完整歷程)。
+  final List<RecruitmentMember> members;
+
+  /// 有效成員:未被拒絕者。這些人佔用名額。
+  List<RecruitmentMember> get activeMembers =>
+      members.where((m) => !m.isRejected).toList();
+
+  /// 已核准的成員。
+  List<RecruitmentMember> get approvedMembers =>
+      members.where((m) => m.isApproved).toList();
+
+  /// 待審核的申請,發起者需要處理。
+  List<RecruitmentMember> get pendingMembers =>
+      members.where((m) => m.isPending).toList();
+
+  /// 已佔用的名額(未被拒絕者的 party 總和)。
+  int get joinedCount =>
+      activeMembers.fold(0, (sum, m) => sum + m.partySize);
+
+  /// 剩餘名額。
+  int get remainingSlots {
+    final left = headcount - joinedCount;
+    return left > 0 ? left : 0;
+  }
+
+  bool get isFull => remainingSlots <= 0;
+
+  /// 是否有待審核的申請。
+  bool get hasPending => pendingMembers.isNotEmpty;
+
+  /// 取得指定使用者的成員紀錄。未申請過則為 null。
+  RecruitmentMember? memberOf(String? userId) {
+    if (userId == null) return null;
+    for (final m in members) {
+      if (m.userId == userId) return m;
+    }
+    return null;
+  }
+
+  /// 指定使用者是否已申請(未被拒絕)。
+  bool isJoinedBy(String? userId) {
+    final m = memberOf(userId);
+    return m != null && !m.isRejected;
+  }
+
+  /// 指定使用者是否已被核准(可看集合資訊)。
+  bool isApprovedFor(String? userId) => memberOf(userId)?.isApproved ?? false;
 
   /// 是否為指定使用者發起。
   bool isHostedBy(String? userId) => userId != null && authorId == userId;
+
+  /// 指定使用者能否看到集合資訊:發起者或已核准成員。
+  bool canSeeMeetingInfo(String? userId) =>
+      isHostedBy(userId) || isApprovedFor(userId);
+
+  /// 是否有任何集合資訊可顯示。
+  bool get hasMeetingInfo =>
+      meetingPoint.isNotEmpty || meetingTime != null || contactInfo.isNotEmpty;
 }
 
 /// 预约来源:自己发起的招募 或 加入他人的招募。

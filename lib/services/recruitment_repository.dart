@@ -10,48 +10,55 @@ enum JoinResult {
   error,
 }
 
+/// 審核成員或更新招募的結果。
+enum HostActionResult {
+  ok,
+  forbidden,
+  notFound,
+  notAuthenticated,
+
+  /// 更新招募時,新名額小於目前已佔用的人數。
+  headcountTooLow,
+  error,
+}
+
 /// 招募討論版的遠端存取。
 class RecruitmentRepository {
   static const _recruitments = 'recruitments';
   static const _members = 'recruitment_members';
 
-  /// 讀取所有招募貼文(含發起人暱稱與參加者)。
+  /// 讀取所有招募貼文(含發起人與成員暱稱)。
   ///
   /// 注意:recruitments.author_id 的外鍵指向 auth.users,不是 profiles,
   /// 所以無法用 PostgREST 的 embed 直接帶出暱稱,改為分批查詢後在本地組裝。
   Future<List<RecruitmentPost>> fetchAll() async {
     final rows = await SupabaseConfig.client
         .from(_recruitments)
-        .select('*, recruitment_members(user_id)')
+        .select('*, recruitment_members(user_id, status, guest_count)')
         .order('created_at', ascending: false);
 
     final list = rows as List;
     if (list.isEmpty) return [];
 
-    // 收集所有發起人 id,一次查回暱稱。
-    final authorIds = <String>{};
+    // 收集發起人與所有成員的 id,一次查回暱稱。
+    // 發起者要看到是誰申請,所以連成員一起查。
+    final userIds = <String>{};
     for (final row in list) {
-      if (row is Map && row['author_id'] is String) {
-        authorIds.add(row['author_id'] as String);
+      if (row is! Map) continue;
+      if (row['author_id'] is String) {
+        userIds.add(row['author_id'] as String);
+      }
+      final members = row['recruitment_members'];
+      if (members is List) {
+        for (final m in members) {
+          if (m is Map && m['user_id'] is String) {
+            userIds.add(m['user_id'] as String);
+          }
+        }
       }
     }
 
-    final nicknames = <String, String>{};
-    if (authorIds.isNotEmpty) {
-      try {
-        final profileRows = await SupabaseConfig.client
-            .from('profiles')
-            .select('id, nickname')
-            .inFilter('id', authorIds.toList());
-        for (final p in profileRows as List) {
-          if (p is Map && p['id'] is String) {
-            nicknames[p['id'] as String] = (p['nickname'] as String?) ?? '匿名';
-          }
-        }
-      } catch (_) {
-        // 查不到暱稱不影響貼文顯示。
-      }
-    }
+    final nicknames = await _fetchNicknames(userIds);
 
     final posts = <RecruitmentPost>[];
     for (final row in list) {
@@ -61,18 +68,43 @@ class RecruitmentRepository {
     return posts;
   }
 
+  /// 批次查詢暱稱。查不到不影響貼文顯示。
+  Future<Map<String, String>> _fetchNicknames(Set<String> ids) async {
+    if (ids.isEmpty) return {};
+    final nicknames = <String, String>{};
+    try {
+      final rows = await SupabaseConfig.client
+          .from('profiles')
+          .select('id, nickname')
+          .inFilter('id', ids.toList());
+      for (final p in rows as List) {
+        if (p is Map && p['id'] is String) {
+          nicknames[p['id'] as String] = (p['nickname'] as String?) ?? '匿名';
+        }
+      }
+    } catch (_) {
+      // 查不到暱稱不影響貼文顯示。
+    }
+    return nicknames;
+  }
+
   RecruitmentPost _parsePost(Map row, Map<String, String> nicknames) {
     final authorId = (row['author_id'] as String?) ?? '';
     final author = nicknames[authorId] ?? '匿名';
 
-    // 參加者 user_id 集合
-    final joinedBy = <String>{};
-    final members = row['recruitment_members'];
-    if (members is List) {
-      for (final m in members) {
-        if (m is Map && m['user_id'] is String) {
-          joinedBy.add(m['user_id'] as String);
-        }
+    // 成員名單(含審核狀態與帶人數)
+    final members = <RecruitmentMember>[];
+    final rawMembers = row['recruitment_members'];
+    if (rawMembers is List) {
+      for (final m in rawMembers) {
+        if (m is! Map || m['user_id'] is! String) continue;
+        final uid = m['user_id'] as String;
+        members.add(RecruitmentMember(
+          userId: uid,
+          nickname: nicknames[uid] ?? '匿名',
+          status: MemberStatus.fromText(m['status'] as String?),
+          guestCount: (m['guest_count'] as num?)?.toInt() ?? 0,
+        ));
       }
     }
 
@@ -96,6 +128,8 @@ class RecruitmentRepository {
       }
     }
 
+    final meetingRaw = row['meeting_time'] as String?;
+
     return RecruitmentPost(
       id: row['id'] as String,
       authorId: authorId,
@@ -107,7 +141,10 @@ class RecruitmentRepository {
       author: author,
       createdAt: DateTime.tryParse('${row['created_at']}')?.toLocal() ?? DateTime.now(),
       relatedActivity: related,
-      joinedBy: joinedBy,
+      meetingPoint: (row['meeting_point'] as String?) ?? '',
+      meetingTime: meetingRaw == null ? null : DateTime.tryParse(meetingRaw)?.toLocal(),
+      contactInfo: (row['contact_info'] as String?) ?? '',
+      members: members,
     );
   }
 
@@ -126,7 +163,7 @@ class RecruitmentRepository {
 
   static String _genderTo(GenderPref g) => g.name;
 
-  /// 發起招募。建立後自動把自己加入成員。
+  /// 發起招募。建立後自動把自己加入成員(狀態為已核准)。
   ///
   /// 成功回傳新貼文 id;失敗丟出例外由呼叫端處理。
   Future<String> create({
@@ -136,6 +173,9 @@ class RecruitmentRepository {
     required GenderPref genderPref,
     required int cost,
     Activity? relatedActivity,
+    String meetingPoint = '',
+    DateTime? meetingTime,
+    String contactInfo = '',
   }) async {
     final uid = SupabaseConfig.userId;
     if (uid == null) {
@@ -154,23 +194,64 @@ class RecruitmentRepository {
           'activity_title': relatedActivity?.title,
           'activity_city': relatedActivity?.city,
           'activity_date': relatedActivity?.date.toUtc().toIso8601String(),
+          'meeting_point': meetingPoint.isEmpty ? null : meetingPoint,
+          'meeting_time': meetingTime?.toUtc().toIso8601String(),
+          'contact_info': contactInfo.isEmpty ? null : contactInfo,
         })
         .select()
         .single();
 
     final newId = inserted['id'] as String;
-    // 發起人自動加入(走 function 以符合名額檢查邏輯)。
+    // 發起人自動加入(走 function,會直接給 approved 狀態)。
     // 加入失敗不影響貼文本身,呼叫端重新 fetch 即可看到正確狀態。
     await join(newId);
     return newId;
   }
 
-  /// 加入招募。名額檢查由資料庫 function 以交易保證。
-  Future<JoinResult> join(String recruitmentId) async {
+  /// 發起者更新招募內容(含集合資訊)。
+  Future<HostActionResult> update({
+    required String recruitmentId,
+    required String title,
+    required String content,
+    required int headcount,
+    required GenderPref genderPref,
+    required int cost,
+    String meetingPoint = '',
+    DateTime? meetingTime,
+    String contactInfo = '',
+  }) async {
+    try {
+      final result = await SupabaseConfig.client.rpc(
+        'update_recruitment',
+        params: {
+          'p_recruitment_id': recruitmentId,
+          'p_title': title,
+          'p_content': content,
+          'p_headcount': headcount,
+          'p_gender_pref': _genderTo(genderPref),
+          'p_cost': cost,
+          'p_meeting_point': meetingPoint.isEmpty ? null : meetingPoint,
+          'p_meeting_time': meetingTime?.toUtc().toIso8601String(),
+          'p_contact_info': contactInfo.isEmpty ? null : contactInfo,
+        },
+      );
+      return _hostResultFrom(result);
+    } catch (_) {
+      return HostActionResult.error;
+    }
+  }
+
+  /// 申請加入招募。名額檢查(含帶的人)由資料庫 function 以交易保證。
+  ///
+  /// [guestCount] 為本人以外額外帶的人數。
+  Future<JoinResult> join(String recruitmentId, {int guestCount = 0}) async {
     try {
       final result = await SupabaseConfig.client.rpc(
         'join_recruitment',
-        params: {'p_recruitment_id': recruitmentId},
+        params: {
+          'p_recruitment_id': recruitmentId,
+          'p_guest_count': guestCount,
+        },
       );
       switch (result) {
         case 'ok':
@@ -186,6 +267,44 @@ class RecruitmentRepository {
       }
     } catch (_) {
       return JoinResult.error;
+    }
+  }
+
+  /// 發起者同意或拒絕某位申請者。
+  Future<HostActionResult> setMemberStatus({
+    required String recruitmentId,
+    required String userId,
+    required MemberStatus status,
+  }) async {
+    try {
+      final result = await SupabaseConfig.client.rpc(
+        'set_member_status',
+        params: {
+          'p_recruitment_id': recruitmentId,
+          'p_user_id': userId,
+          'p_status': status.name,
+        },
+      );
+      return _hostResultFrom(result);
+    } catch (_) {
+      return HostActionResult.error;
+    }
+  }
+
+  static HostActionResult _hostResultFrom(dynamic raw) {
+    switch (raw) {
+      case 'ok':
+        return HostActionResult.ok;
+      case 'forbidden':
+        return HostActionResult.forbidden;
+      case 'not_found':
+        return HostActionResult.notFound;
+      case 'not_authenticated':
+        return HostActionResult.notAuthenticated;
+      case 'headcount_too_low':
+        return HostActionResult.headcountTooLow;
+      default:
+        return HostActionResult.error;
     }
   }
 

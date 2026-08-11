@@ -452,6 +452,9 @@ class AppState extends ChangeNotifier {
     required GenderPref genderPref,
     required int cost,
     Activity? relatedActivity,
+    String meetingPoint = '',
+    DateTime? meetingTime,
+    String contactInfo = '',
   }) async {
     try {
       await _recruitmentRepo.create(
@@ -461,6 +464,9 @@ class AppState extends ChangeNotifier {
         genderPref: genderPref,
         cost: cost,
         relatedActivity: relatedActivity,
+        meetingPoint: meetingPoint,
+        meetingTime: meetingTime,
+        contactInfo: contactInfo,
       );
       await loadRemoteData();
     } catch (e) {
@@ -469,37 +475,120 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// 目前使用者是否已加入這則招募。
+  /// 發起者修改招募內容。只有發起者能改,伺服器會再驗一次。
+  Future<bool> updateRecruitment({
+    required String recruitmentId,
+    required String title,
+    required String content,
+    required int headcount,
+    required GenderPref genderPref,
+    required int cost,
+    String meetingPoint = '',
+    DateTime? meetingTime,
+    String contactInfo = '',
+  }) async {
+    final result = await _recruitmentRepo.update(
+      recruitmentId: recruitmentId,
+      title: title,
+      content: content,
+      headcount: headcount,
+      genderPref: genderPref,
+      cost: cost,
+      meetingPoint: meetingPoint,
+      meetingTime: meetingTime,
+      contactInfo: contactInfo,
+    );
+
+    switch (result) {
+      case HostActionResult.ok:
+        await loadRemoteData();
+        return true;
+      case HostActionResult.headcountTooLow:
+        _syncError = '人數不能少於已加入的人數,請先調整成員。';
+      case HostActionResult.forbidden:
+        _syncError = '只有發起者可以修改這則招募。';
+      default:
+        _syncError = '無法修改招募,請稍後再試。';
+    }
+    notifyListeners();
+    return false;
+  }
+
+  /// 目前使用者是否已申請這則招募(含待審核)。
   bool hasJoined(RecruitmentPost post) => post.isJoinedBy(currentUserId);
 
-  /// 加入/退出招募。名額檢查由伺服器以交易保證。
-  Future<void> toggleJoin(RecruitmentPost post) async {
+  /// 目前使用者在這則招募的成員紀錄。未申請則為 null。
+  RecruitmentMember? myMembership(RecruitmentPost post) =>
+      post.memberOf(currentUserId);
+
+  /// 目前使用者是否為這則招募的發起者。
+  bool isHost(RecruitmentPost post) => post.isHostedBy(currentUserId);
+
+  /// 目前使用者能否看到集合資訊(發起者或已核准成員)。
+  bool canSeeMeetingInfo(RecruitmentPost post) =>
+      post.canSeeMeetingInfo(currentUserId);
+
+  /// 申請加入招募。[guestCount] 為本人以外要帶的人數。
+  ///
+  /// 名額在申請時就鎖住(待審核也佔位),檢查由伺服器以交易保證。
+  Future<bool> requestJoin(RecruitmentPost post, {int guestCount = 0}) async {
+    final uid = currentUserId;
+    if (uid == null) return false;
+
+    final result = await _recruitmentRepo.join(post.id, guestCount: guestCount);
+    switch (result) {
+      case JoinResult.ok:
+        _participated = true;
+        // 重新同步以取得伺服器產生的成員狀態。
+        await loadRemoteData();
+        return true;
+      case JoinResult.full:
+        _syncError = '名額已滿,請看看其他揪團。';
+        await loadRemoteData();
+        return false;
+      default:
+        _syncError = '無法加入,請稍後再試。';
+        notifyListeners();
+        return false;
+    }
+  }
+
+  /// 退出招募(自行取消申請)。
+  Future<void> leaveRecruitment(RecruitmentPost post) async {
     final uid = currentUserId;
     if (uid == null) return;
+    await _recruitmentRepo.leave(post.id);
+    await loadRemoteData();
+  }
 
-    if (post.joinedBy.contains(uid)) {
-      // 退出:先更新畫面,再送出請求。
-      post.joinedBy.remove(uid);
-      _rebuildBookings();
-      notifyListeners();
-      await _recruitmentRepo.leave(post.id);
-    } else {
-      final result = await _recruitmentRepo.join(post.id);
-      switch (result) {
-        case JoinResult.ok:
-          post.joinedBy.add(uid);
-          _participated = true;
-          _rebuildBookings();
-        case JoinResult.full:
-          _syncError = '名額已滿,請看看其他揪團。';
-          // 重新同步以取得最新人數。
-          await loadRemoteData();
-          return;
-        default:
-          _syncError = '無法加入,請稍後再試。';
-      }
-      notifyListeners();
+  /// 發起者同意申請者加入。
+  Future<void> approveMember(RecruitmentPost post, String userId) async {
+    await _setMemberStatus(post, userId, MemberStatus.approved);
+  }
+
+  /// 發起者拒絕申請者。拒絕後會釋出名額。
+  Future<void> rejectMember(RecruitmentPost post, String userId) async {
+    await _setMemberStatus(post, userId, MemberStatus.rejected);
+  }
+
+  Future<void> _setMemberStatus(
+    RecruitmentPost post,
+    String userId,
+    MemberStatus status,
+  ) async {
+    final result = await _recruitmentRepo.setMemberStatus(
+      recruitmentId: post.id,
+      userId: userId,
+      status: status,
+    );
+    if (result == HostActionResult.ok) {
+      await loadRemoteData();
+      return;
     }
+    _syncError = result == HostActionResult.forbidden
+        ? '只有發起者可以審核成員。'
+        : '無法更新審核狀態,請稍後再試。';
+    notifyListeners();
   }
 
   // ===== 预约 =====

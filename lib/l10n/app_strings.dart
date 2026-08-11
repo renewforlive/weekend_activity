@@ -179,6 +179,55 @@ class AppStrings {
   static String togetherGo(String title) => _pick('一起去「$title」', 'Join me at "$title"');
   static String recruitmentContentPrefill(String city, String venue) => _pick('$city · $venue,有興趣的一起來!', '$city · $venue, join if interested!');
 
+  // ===== 集合資訊(只有已核准成員與發起者看得到)=====
+  static String get meetingInfoTitle => _pick('集合資訊', 'Meeting details');
+  static String get meetingPointField => _pick('集合地點', 'Meeting point');
+  static String get meetingPointHint => _pick('例如:捷運劍潭站 1 號出口', 'e.g. Exit 1, Jiantan Station');
+  static String get meetingTimeField => _pick('集合時間', 'Meeting time');
+  static String get meetingTimeHint => _pick('點擊選擇時間', 'Tap to pick');
+  static String get contactField => _pick('聯絡方式', 'Contact');
+  static String get contactHint => _pick('例如:LINE ID sunny_hike', 'e.g. LINE ID sunny_hike');
+  static String get meetingInfoLocked =>
+      _pick('加入並經發起者同意後,才會顯示集合地點與聯絡方式。',
+          'Meeting details show up once the host approves you.');
+  static String get meetingInfoOptional =>
+      _pick('可留空,之後再補。只有通過審核的成員看得到。',
+          'Optional. Only approved members can see this.');
+  static String get noMeetingInfoYet =>
+      _pick('發起者還沒填集合資訊。', 'The host has not added meeting details yet.');
+
+  // ===== 審核制 =====
+  static String get pendingReview => _pick('等待發起者同意', 'Waiting for approval');
+  static String get memberListTitle => _pick('成員與申請', 'Members & requests');
+  static String get pendingSection => _pick('待審核', 'Pending');
+  static String get approvedSection => _pick('已加入', 'Approved');
+  static String get rejectedSection => _pick('已拒絕', 'Rejected');
+  static String get approveAction => _pick('同意', 'Approve');
+  static String get rejectAction => _pick('拒絕', 'Reject');
+  static String get hostLabel => _pick('發起者', 'Host');
+  static String get noMembersYet => _pick('還沒有人申請加入。', 'No requests yet.');
+  static String get editRecruitment => _pick('修改招募', 'Edit');
+  static String get saveRecruitment => _pick('儲存修改', 'Save changes');
+  static String get recruitmentUpdated => _pick('招募已更新', 'Recruitment updated');
+  static String get cancelRequest => _pick('取消申請', 'Cancel request');
+  static String get leaveGroup => _pick('退出揪團', 'Leave group');
+  static String get approvedJoined => _pick('已加入', 'Joined');
+  static String pendingCount(int n) => _pick('$n 筆待審核', '$n pending');
+
+  // ===== 帶人參加 =====
+  static String get bringPeopleTitle => _pick('要帶人一起嗎?', 'Bringing anyone?');
+  static String get joinAlone => _pick('只有我', 'Just me');
+  static String get bringGuests => _pick('帶人一起', 'Bring guests');
+  static String get guestCountField => _pick('額外帶幾人', 'Extra people');
+  static String get sendRequest => _pick('送出申請', 'Send request');
+  static String remainingSlots(int n) => _pick('還剩 $n 個名額', '$n slots left');
+  static String partyOf(int n) => _pick('共 $n 人', 'party of $n');
+  static String withGuests(int n) => _pick('帶 $n 人', '+$n');
+  static String get guestCountTooMany =>
+      _pick('超過剩餘名額', 'More than the slots left');
+  static String get requestSentSnack =>
+      _pick('申請已送出,等發起者同意 🙌', 'Request sent. Waiting for approval 🙌');
+
   // ===== enum:活動分類 =====
   static String categoryLabel(ActivityCategory c) {
     switch (c) {

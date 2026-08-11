@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
@@ -9,7 +10,12 @@ import '../utils/date_format.dart';
 import '../widgets/recruitment_editor.dart';
 import '../widgets/require_sign_in.dart';
 
-/// 招募討論版:瀏覽揪團貼文、加入/退出、發起新招募。
+/// 招募討論版:瀏覽揪團貼文、申請加入、發起與管理招募。
+///
+/// 三種身分看到的內容不同:
+/// * 發起者:修改鈕 + 審核名單(同意/拒絕),看得到集合資訊,沒有加入/退出鈕。
+/// * 已申請者:依審核狀態顯示「等待同意」或「已加入」,核准後才看得到集合資訊。
+/// * 未加入者:申請鈕(可帶人),看不到集合資訊。
 class RecruitmentPage extends StatelessWidget {
   const RecruitmentPage({super.key});
 
@@ -65,12 +71,6 @@ Future<void> _startRecruitment(BuildContext context) async {
   showRecruitmentEditor(context);
 }
 
-/// 加入招募。未登入時先引導登入。
-Future<void> _join(BuildContext context, AppState state, RecruitmentPost post) async {
-  if (!await requireSignIn(context)) return;
-  await state.toggleJoin(post);
-}
-
 class _PostCard extends StatelessWidget {
   const _PostCard({required this.post});
   final RecruitmentPost post;
@@ -78,61 +78,24 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final joined = state.hasJoined(post);
-    final full = post.isFull;
-    final hosted = post.isHostedBy(state.currentUserId);
+    final uid = state.currentUserId;
+    final hosted = post.isHostedBy(uid);
+    final membership = post.memberOf(uid);
+    final canSeeMeeting = post.canSeeMeetingInfo(uid);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: AppColors.soft,
-                  child: Text(
-                    post.author.characters.first,
-                    style: const TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(post.author,
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                          if (hosted) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.accent.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(AppStrings.hostedByMe,
-                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.accent)),
-                            ),
-                          ],
-                        ],
-                      ),
-                      Text(_ago(post.createdAt),
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            _Header(post: post, hosted: hosted),
             const SizedBox(height: 12),
             Text(post.title,
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
             const SizedBox(height: 6),
             Text(post.content,
-                style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5)),
+                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5)),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
@@ -145,25 +108,66 @@ class _PostCard extends StatelessWidget {
                   _Tag(icon: Icons.place, text: post.relatedActivity!.city),
               ],
             ),
+
+            // 集合資訊:只有發起者與已核准成員看得到。
+            if (canSeeMeeting && post.hasMeetingInfo) ...[
+              const SizedBox(height: 12),
+              _MeetingInfo(post: post),
+            ],
+
             const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: joined
-                  ? OutlinedButton.icon(
-                      onPressed: () => state.toggleJoin(post),
-                      icon: const Icon(Icons.check_circle),
-                      label: Text(AppStrings.joinedTapToLeave),
-                      style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryDark),
-                    )
-                  : ElevatedButton.icon(
-                      onPressed: full ? null : () => _join(context, state, post),
-                      icon: Icon(full ? Icons.block : Icons.group_add),
-                      label: Text(full ? AppStrings.full : AppStrings.join),
-                    ),
-            ),
+
+            // 底部依身分切換。
+            if (hosted)
+              _HostControls(post: post)
+            else
+              _JoinControls(post: post, membership: membership),
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 貼文標頭:發起者頭像、暱稱、發起標記、時間。
+class _Header extends StatelessWidget {
+  const _Header({required this.post, required this.hosted});
+  final RecruitmentPost post;
+  final bool hosted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: AppColors.soft,
+          child: Text(
+            post.author.characters.first,
+            style: const TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(post.author,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  if (hosted) ...[
+                    const SizedBox(width: 6),
+                    _Badge(text: AppStrings.hostedByMe, color: AppColors.accent),
+                  ],
+                ],
+              ),
+              Text(_ago(post.createdAt),
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -174,6 +178,480 @@ class _PostCard extends StatelessWidget {
     if (diff.inHours < 24) return AppStrings.hoursAgo(diff.inHours);
     if (diff.inDays < 7) return AppStrings.daysAgo(diff.inDays);
     return AppDate.monthDay(t);
+  }
+}
+
+/// 集合資訊區塊:地點、時間、聯絡方式。只顯示有填的欄位。
+class _MeetingInfo extends StatelessWidget {
+  const _MeetingInfo({required this.post});
+  final RecruitmentPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.soft,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.lock_open, size: 15, color: AppColors.primaryDark),
+              const SizedBox(width: 6),
+              Text(AppStrings.meetingInfoTitle,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (post.meetingPoint.isNotEmpty)
+            _row(Icons.place_outlined, AppStrings.meetingPointField, post.meetingPoint),
+          if (post.meetingTime != null)
+            _row(Icons.schedule, AppStrings.meetingTimeField, AppDate.monthDayWeekTime(post.meetingTime!)),
+          if (post.contactInfo.isNotEmpty)
+            _row(Icons.contact_phone_outlined, AppStrings.contactField, post.contactInfo),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: AppColors.textSecondary),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 56,
+            child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          ),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 發起者的控制項:修改鈕 + 待審核提示 + 成員名單。
+class _HostControls extends StatelessWidget {
+  const _HostControls({required this.post});
+  final RecruitmentPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = post.pendingMembers;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => showRecruitmentEditor(context, editing: post),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: Text(AppStrings.editRecruitment),
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryDark),
+              ),
+            ),
+            if (pending.isNotEmpty) ...[
+              const SizedBox(width: 10),
+              _Badge(text: AppStrings.pendingCount(pending.length), color: AppColors.accent),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        _MemberList(post: post),
+      ],
+    );
+  }
+}
+
+/// 成員名單(發起者視角):待審核可同意/拒絕,已加入者分區顯示。
+class _MemberList extends StatelessWidget {
+  const _MemberList({required this.post});
+  final RecruitmentPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<AppState>();
+    final pending = post.pendingMembers;
+    final approved = post.approvedMembers;
+
+    return ExpansionTile(
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(bottom: 8),
+      title: Text(AppStrings.memberListTitle,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+      children: [
+        if (pending.isEmpty && approved.isEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(AppStrings.noMembersYet,
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+          ),
+        if (pending.isNotEmpty) ...[
+          _sectionLabel(AppStrings.pendingSection),
+          for (final m in pending)
+            _MemberRow(
+              member: m,
+              isHostRow: m.userId == post.authorId,
+              onApprove: () => state.approveMember(post, m.userId),
+              onReject: () => state.rejectMember(post, m.userId),
+            ),
+        ],
+        if (approved.isNotEmpty) ...[
+          _sectionLabel(AppStrings.approvedSection),
+          for (final m in approved)
+            _MemberRow(member: m, isHostRow: m.userId == post.authorId),
+        ],
+      ],
+    );
+  }
+
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Text(text,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+    );
+  }
+}
+
+/// 單一成員列。待審核者(且非發起者本人)顯示同意/拒絕鈕。
+class _MemberRow extends StatelessWidget {
+  const _MemberRow({
+    required this.member,
+    required this.isHostRow,
+    this.onApprove,
+    this.onReject,
+  });
+
+  final RecruitmentMember member;
+  final bool isHostRow;
+  final VoidCallback? onApprove;
+  final VoidCallback? onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final showActions = member.isPending && onApprove != null && !isHostRow;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: AppColors.soft,
+            child: Text(
+              member.nickname.characters.first,
+              style: const TextStyle(fontSize: 12, color: AppColors.primaryDark, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(member.nickname,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                ),
+                if (isHostRow) ...[
+                  const SizedBox(width: 6),
+                  _Badge(text: AppStrings.hostLabel, color: AppColors.primary),
+                ],
+                if (member.guestCount > 0) ...[
+                  const SizedBox(width: 6),
+                  Text(AppStrings.withGuests(member.guestCount),
+                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                ],
+              ],
+            ),
+          ),
+          if (showActions) ...[
+            IconButton(
+              onPressed: onReject,
+              icon: const Icon(Icons.close, size: 20, color: AppColors.danger),
+              tooltip: AppStrings.rejectAction,
+              visualDensity: VisualDensity.compact,
+            ),
+            IconButton(
+              onPressed: onApprove,
+              icon: const Icon(Icons.check, size: 20, color: AppColors.primary),
+              tooltip: AppStrings.approveAction,
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 非發起者的控制項:依成員狀態切換申請 / 待審核 / 退出。
+class _JoinControls extends StatelessWidget {
+  const _JoinControls({required this.post, required this.membership});
+  final RecruitmentPost post;
+  final RecruitmentMember? membership;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<AppState>();
+    final m = membership;
+
+    // 已核准:顯示已加入 + 退出。
+    if (m != null && m.isApproved) {
+      return Row(
+        children: [
+          const Icon(Icons.check_circle, size: 20, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Text(AppStrings.approvedJoined,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+          if (m.guestCount > 0) ...[
+            const SizedBox(width: 6),
+            Text(AppStrings.withGuests(m.guestCount),
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          ],
+          const Spacer(),
+          TextButton(
+            onPressed: () => _confirmLeave(context, state),
+            child: Text(AppStrings.leaveGroup, style: const TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      );
+    }
+
+    // 待審核:顯示等待中 + 取消申請。
+    if (m != null && m.isPending) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 16, height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+          ),
+          const SizedBox(width: 8),
+          Text(AppStrings.pendingReview,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.accent)),
+          const Spacer(),
+          TextButton(
+            onPressed: () => state.leaveRecruitment(post),
+            child: Text(AppStrings.cancelRequest, style: const TextStyle(color: AppColors.textSecondary)),
+          ),
+        ],
+      );
+    }
+
+    // 未加入:申請鈕(滿了就停用)。
+    final full = post.isFull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 讓未加入者知道有集合資訊,但要通過審核才看得到。
+        if (post.hasMeetingInfo) ...[
+          Row(
+            children: [
+              const Icon(Icons.lock_outline, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(AppStrings.meetingInfoLocked,
+                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: full ? null : () => _requestJoin(context, state),
+            icon: Icon(full ? Icons.block : Icons.group_add),
+            label: Text(full ? AppStrings.full : AppStrings.join),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 申請加入:未登入先引導,再問要不要帶人。
+  Future<void> _requestJoin(BuildContext context, AppState state) async {
+    if (!await requireSignIn(context)) return;
+    if (!context.mounted) return;
+
+    final guestCount = await showModalBottomSheet<int>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _BringPeopleSheet(remaining: post.remainingSlots),
+    );
+    if (guestCount == null) return; // 使用者取消
+    if (!context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await state.requestJoin(post, guestCount: guestCount);
+    if (ok) {
+      messenger.showSnackBar(SnackBar(content: Text(AppStrings.requestSentSnack)));
+    }
+  }
+
+  Future<void> _confirmLeave(BuildContext context, AppState state) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(AppStrings.leaveGroup),
+        content: Text(post.title),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppStrings.cancel)),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(AppStrings.leaveGroup),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await state.leaveRecruitment(post);
+  }
+}
+
+/// 帶人參加的選擇面板。帶的人也佔名額,所以上限是剩餘名額 - 1。
+class _BringPeopleSheet extends StatefulWidget {
+  const _BringPeopleSheet({required this.remaining});
+
+  /// 目前剩餘名額(含本人)。
+  final int remaining;
+
+  @override
+  State<_BringPeopleSheet> createState() => _BringPeopleSheetState();
+}
+
+class _BringPeopleSheetState extends State<_BringPeopleSheet> {
+  final _guests = TextEditingController(text: '1');
+  bool _bringing = false;
+  String? _error;
+
+  /// 本人以外還能帶幾人。
+  int get _maxGuests => widget.remaining - 1;
+
+  @override
+  void dispose() {
+    _guests.dispose();
+    super.dispose();
+  }
+
+  void _confirm() {
+    if (!_bringing) {
+      Navigator.pop(context, 0);
+      return;
+    }
+    final n = int.tryParse(_guests.text) ?? 0;
+    if (n < 1 || n > _maxGuests) {
+      setState(() => _error = AppStrings.guestCountTooMany);
+      return;
+    }
+    Navigator.pop(context, n);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44, height: 4,
+                decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(AppStrings.bringPeopleTitle,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            const SizedBox(height: 4),
+            Text(AppStrings.remainingSlots(widget.remaining),
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: Text(AppStrings.joinAlone),
+                    selected: !_bringing,
+                    onSelected: (_) => setState(() {
+                      _bringing = false;
+                      _error = null;
+                    }),
+                    selectedColor: AppColors.primary,
+                    labelStyle: TextStyle(
+                      color: !_bringing ? Colors.white : AppColors.primaryDark,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    backgroundColor: AppColors.soft,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ChoiceChip(
+                    label: Text(AppStrings.bringGuests),
+                    selected: _bringing,
+                    // 沒有多餘名額時無法帶人。
+                    onSelected: _maxGuests < 1 ? null : (_) => setState(() => _bringing = true),
+                    selectedColor: AppColors.primary,
+                    labelStyle: TextStyle(
+                      color: _bringing ? Colors.white : AppColors.primaryDark,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    backgroundColor: AppColors.soft,
+                    disabledColor: AppColors.soft,
+                  ),
+                ),
+              ],
+            ),
+            if (_bringing) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _guests,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
+                decoration: InputDecoration(
+                  labelText: AppStrings.guestCountField,
+                  suffixText: AppStrings.peopleUnit,
+                  errorText: _error,
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _confirm,
+                icon: const Icon(Icons.send),
+                label: Text(AppStrings.sendRequest),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -195,6 +673,26 @@ class _Tag extends StatelessWidget {
           Text(text, style: const TextStyle(fontSize: 12, color: AppColors.primaryDark, fontWeight: FontWeight.w600)),
         ],
       ),
+    );
+  }
+}
+
+/// 小標籤:發起標記、待審核筆數、發起者標示。
+class _Badge extends StatelessWidget {
+  const _Badge({required this.text, required this.color});
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(text,
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }
