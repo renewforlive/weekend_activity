@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -83,6 +83,19 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clear all account-specific state before switching to a different user.
+  /// This prevents the next account from briefly seeing the deleted account's data.
+  void clearAccountData() {
+    _profile = UserProfile(nickname: '我', bio: '');
+    _participated = false;
+    _schedule.clear();
+    _recruitments.clear();
+    _hostedCount = 0;
+    _bookings.clear();
+    _syncError = null;
+    notifyListeners();
+  }
+
   /// 從伺服器載入個人資料、招募、行程。
   ///
   /// 每個區塊獨立處理,單一失敗不影響其他資料載入。
@@ -109,7 +122,9 @@ class AppState extends ChangeNotifier {
       _recruitments
         ..clear()
         ..addAll(posts);
-      _hostedCount = _recruitments.where((r) => r.isHostedBy(currentUserId)).length;
+      _hostedCount = _recruitments
+          .where((r) => r.isHostedBy(currentUserId))
+          .length;
     } catch (e) {
       errors.add('招募');
       debugPrint('載入招募失敗: $e');
@@ -197,7 +212,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       _citySpots = await _attractionAsset.byCity(_selectedCity);
-      _spotVisible = _citySpots.length < _spotPageSize ? _citySpots.length : _spotPageSize;
+      _spotVisible = _citySpots.length < _spotPageSize
+          ? _citySpots.length
+          : _spotPageSize;
     } catch (e) {
       _spotsError = '無法載入景點資料,請稍後再試。';
       _citySpots = [];
@@ -244,12 +261,18 @@ class AppState extends ChangeNotifier {
   }
 
   /// 把登山步道排入行程。步道沒有固定日期,由使用者指定。
-  Future<void> addTrailToSchedule(HikingTrail trail, DateTime scheduledAt) async {
+  Future<void> addTrailToSchedule(
+    HikingTrail trail,
+    DateTime scheduledAt,
+  ) async {
     await addToSchedule(Activity.fromTrail(trail, scheduledAt));
   }
 
   /// 把露營場排入行程。與步道一樣需要使用者指定日期。
-  Future<void> addCampingToSchedule(CampingSite site, DateTime scheduledAt) async {
+  Future<void> addCampingToSchedule(
+    CampingSite site,
+    DateTime scheduledAt,
+  ) async {
     await addToSchedule(Activity.fromCamping(site, scheduledAt));
   }
 
@@ -330,21 +353,30 @@ class AppState extends ChangeNotifier {
     final today = DateTime(now.year, now.month, now.day);
     final limit = today.add(const Duration(days: 92));
     return _activities
-        .where((a) => a.city == city && !a.date.isBefore(today) && !a.date.isAfter(limit))
+        .where(
+          (a) =>
+              a.city == city &&
+              !a.date.isBefore(today) &&
+              !a.date.isAfter(limit),
+        )
         .toList();
   }
 
   /// 指定縣市、近三個月內的活動(依日期升序)。
   List<Activity> get activitiesForSelectedCity {
-    final list = _activitiesInCity(_selectedCity)..sort((a, b) => a.date.compareTo(b.date));
+    final list = _activitiesInCity(_selectedCity)
+      ..sort((a, b) => a.date.compareTo(b.date));
     return list;
   }
 
   // ===== 行程 =====
   final List<ScheduleItem> _schedule = [];
-  List<ScheduleItem> get schedule => List.unmodifiable(_schedule..sort((a, b) => a.activity.date.compareTo(b.activity.date)));
+  List<ScheduleItem> get schedule => List.unmodifiable(
+    _schedule..sort((a, b) => a.activity.date.compareTo(b.activity.date)),
+  );
 
-  bool isScheduled(Activity activity) => _schedule.any((s) => s.activity.id == activity.id);
+  bool isScheduled(Activity activity) =>
+      _schedule.any((s) => s.activity.id == activity.id);
 
   /// 排入行程。可帶入使用者選定的排入時間 scheduledAt(景點無固定時間時使用);
   /// 展覽等有固定時間者傳 null,沿用 activity.date。
@@ -389,8 +421,7 @@ class AppState extends ChangeNotifier {
     final list = _schedule.where((s) {
       final d = s.activity.date;
       return DateTime(d.year, d.month, d.day) == target;
-    }).toList()
-      ..sort((a, b) => a.activity.date.compareTo(b.activity.date));
+    }).toList()..sort((a, b) => a.activity.date.compareTo(b.activity.date));
     return list;
   }
 
@@ -408,20 +439,35 @@ class AppState extends ChangeNotifier {
     await _scheduleRepo.remove(scheduleId);
   }
 
-  Future<void> updateReminder(String scheduleId, {DateTime? remindAt, bool? enabled}) async {
+  Future<void> updateReminder(
+    String scheduleId, {
+    DateTime? remindAt,
+    bool? enabled,
+  }) async {
     final item = _schedule.firstWhere((s) => s.id == scheduleId);
     if (remindAt != null) item.remindAt = remindAt;
     if (enabled != null) item.reminderEnabled = enabled;
     _syncReminder(item);
     notifyListeners();
-    await _scheduleRepo.updateReminder(scheduleId, remindAt: remindAt, enabled: enabled);
+    await _scheduleRepo.updateReminder(
+      scheduleId,
+      remindAt: remindAt,
+      enabled: enabled,
+    );
   }
 
   DateTime _defaultRemindFor(DateTime activityDate) {
-    final dayBefore = DateTime(activityDate.year, activityDate.month, activityDate.day - 1, 9);
+    final dayBefore = DateTime(
+      activityDate.year,
+      activityDate.month,
+      activityDate.day - 1,
+      9,
+    );
     if (dayBefore.isAfter(DateTime.now())) return dayBefore;
     final hourBefore = activityDate.subtract(const Duration(hours: 1));
-    return hourBefore.isAfter(DateTime.now()) ? hourBefore : DateTime.now().add(const Duration(minutes: 1));
+    return hourBefore.isAfter(DateTime.now())
+        ? hourBefore
+        : DateTime.now().add(const Duration(minutes: 1));
   }
 
   void _syncReminder(ScheduleItem item) {
@@ -439,7 +485,9 @@ class AppState extends ChangeNotifier {
 
   // ===== 招募(讨论版)=====
   final List<RecruitmentPost> _recruitments = [];
-  List<RecruitmentPost> get recruitments => List.unmodifiable(_recruitments..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+  List<RecruitmentPost> get recruitments => List.unmodifiable(
+    _recruitments..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+  );
 
   int _hostedCount = 0;
   int get hostedRecruitmentCount => _hostedCount;
@@ -612,14 +660,16 @@ class AppState extends ChangeNotifier {
 
     // 我排入的活動
     for (final s in _schedule) {
-      _bookings.add(Booking(
-        id: 'book_sch_${s.id}',
-        title: s.activity.title,
-        date: s.activity.date,
-        source: BookingSource.activity,
-        city: s.activity.city,
-        cost: s.activity.cost,
-      ));
+      _bookings.add(
+        Booking(
+          id: 'book_sch_${s.id}',
+          title: s.activity.title,
+          date: s.activity.date,
+          source: BookingSource.activity,
+          city: s.activity.city,
+          cost: s.activity.cost,
+        ),
+      );
     }
 
     if (uid == null) return;
@@ -629,14 +679,16 @@ class AppState extends ChangeNotifier {
       final hosted = r.isHostedBy(uid);
       final joined = r.isJoinedBy(uid);
       if (!hosted && !joined) continue;
-      _bookings.add(Booking(
-        id: 'book_rec_${r.id}',
-        title: r.title,
-        date: r.relatedActivity?.date,
-        source: hosted ? BookingSource.hosted : BookingSource.joined,
-        city: r.relatedActivity?.city,
-        cost: r.cost,
-      ));
+      _bookings.add(
+        Booking(
+          id: 'book_rec_${r.id}',
+          title: r.title,
+          date: r.relatedActivity?.date,
+          source: hosted ? BookingSource.hosted : BookingSource.joined,
+          city: r.relatedActivity?.city,
+          cost: r.cost,
+        ),
+      );
     }
   }
 
@@ -655,15 +707,30 @@ class AppState extends ChangeNotifier {
   bool get isAvatarUploading => _avatarUploading;
   bool get hasParticipated => _participated || _schedule.isNotEmpty;
 
-  Future<void> updateProfile({String? nickname, String? bio, int? avatarColorValue}) async {
-    if (nickname != null && nickname.trim().isNotEmpty) _profile.nickname = nickname.trim();
-    if (bio != null) _profile.bio = bio.trim();
-    if (avatarColorValue != null) _profile.avatarColorValue = avatarColorValue;
+  Future<void> updateProfile({
+    String? nickname,
+    String? bio,
+    int? avatarColorValue,
+  }) async {
+    if (nickname != null && nickname.trim().isNotEmpty) {
+      _profile.nickname = nickname.trim();
+    }
+    if (bio != null) {
+      _profile.bio = bio.trim();
+    }
+    final validAvatarColor =
+        avatarColorValue != null &&
+            UserProfile.isValidAvatarColor(avatarColorValue)
+        ? avatarColorValue
+        : null;
+    if (validAvatarColor != null) {
+      _profile.avatarColorValue = validAvatarColor;
+    }
     notifyListeners();
     await _profileRepo.updateProfile(
       nickname: nickname,
       bio: bio,
-      avatarColorValue: avatarColorValue,
+      avatarColorValue: validAvatarColor,
     );
   }
 

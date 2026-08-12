@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -14,10 +14,6 @@ import '../widgets/account_section.dart';
 /// 個人頁:頭像、照片(可拍照/選相簿)、暱稱、自介、是否參與過活動、開啟招募次數。
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
-
-  static const List<int> _avatarColors = [
-    0xFF3BB273, 0xFFFF9F45, 0xFF7C6FF0, 0xFF4AA8D8, 0xFFE5896B, 0xFFEBA83A,
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -47,14 +43,26 @@ class ProfilePage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text(p.nickname,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                Text(
+                  p.nickname,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(p.bio,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5)),
+                  child: Text(
+                    p.bio,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -66,8 +74,12 @@ class ProfilePage extends StatelessWidget {
                 child: _StatCard(
                   icon: Icons.verified,
                   label: AppStrings.participatedLabel,
-                  value: state.hasParticipated ? AppStrings.participated : AppStrings.notParticipated,
-                  color: state.hasParticipated ? AppColors.primary : AppColors.textSecondary,
+                  value: state.hasParticipated
+                      ? AppStrings.participated
+                      : AppStrings.notParticipated,
+                  color: state.hasParticipated
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
                 ),
               ),
               const SizedBox(width: 12),
@@ -84,37 +96,71 @@ class ProfilePage extends StatelessWidget {
           const SizedBox(height: 24),
           Row(
             children: [
-              Text(AppStrings.myPhotos,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+              Text(
+                AppStrings.myPhotos,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
               const Spacer(),
               TextButton.icon(
                 onPressed: () => _addPhoto(context, state),
-                icon: const Icon(Icons.add_a_photo_outlined, size: 18, color: AppColors.primary),
-                label: Text(AppStrings.add, style: const TextStyle(color: AppColors.primary)),
+                icon: const Icon(
+                  Icons.add_a_photo_outlined,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+                label: Text(
+                  AppStrings.add,
+                  style: const TextStyle(color: AppColors.primary),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           _PhotoGrid(photos: p.photos, onRemove: state.removePhoto),
           const SizedBox(height: 24),
-          Text(AppStrings.avatarColor,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+          Text(
+            AppStrings.avatarColor,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 12,
             children: [
-              for (final c in _avatarColors)
-                GestureDetector(
-                  onTap: () => state.updateProfile(avatarColorValue: c),
-                  child: Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(
-                      color: Color(c),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: p.avatarColorValue == c ? AppColors.textPrimary : Colors.transparent,
-                        width: 3,
+              for (final c in UserProfile.avatarColors)
+                Semantics(
+                  button: true,
+                  selected: p.avatarColorValue == c,
+                  child: InkWell(
+                    onTap: () => state.updateProfile(avatarColorValue: c),
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Color(c),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: p.avatarColorValue == c
+                              ? AppColors.textPrimary
+                              : Colors.transparent,
+                          width: 3,
+                        ),
                       ),
+                      child: p.avatarColorValue == c
+                          ? const Icon(
+                              Icons.check,
+                              color: Colors.white,
+                              size: 20,
+                            )
+                          : null,
                     ),
                   ),
                 ),
@@ -139,13 +185,23 @@ class ProfilePage extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nickCtrl, decoration: InputDecoration(labelText: AppStrings.nickname)),
+            TextField(
+              controller: nickCtrl,
+              decoration: InputDecoration(labelText: AppStrings.nickname),
+            ),
             const SizedBox(height: 12),
-            TextField(controller: bioCtrl, maxLines: 3, decoration: InputDecoration(labelText: AppStrings.bio)),
+            TextField(
+              controller: bioCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(labelText: AppStrings.bio),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(AppStrings.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(AppStrings.cancel),
+          ),
           ElevatedButton(
             onPressed: () {
               state.updateProfile(nickname: nickCtrl.text, bio: bioCtrl.text);
@@ -164,7 +220,9 @@ class ProfilePage extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -175,13 +233,22 @@ class ProfilePage extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: Row(
                   children: [
-                    Text(AppStrings.setAvatar,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    Text(
+                      AppStrings.setAvatar,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                   ],
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.photo_camera_outlined, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.photo_camera_outlined,
+                  color: AppColors.primary,
+                ),
                 title: Text(AppStrings.takePhoto),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -189,7 +256,10 @@ class ProfilePage extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColors.primary,
+                ),
                 title: Text(AppStrings.chooseFromGallery),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -198,8 +268,14 @@ class ProfilePage extends StatelessWidget {
               ),
               if (hasAvatar)
                 ListTile(
-                  leading: const Icon(Icons.delete_outline, color: AppColors.danger),
-                  title: Text(AppStrings.removeAvatar, style: const TextStyle(color: AppColors.danger)),
+                  leading: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.danger,
+                  ),
+                  title: Text(
+                    AppStrings.removeAvatar,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     state.removeAvatar();
@@ -213,7 +289,11 @@ class ProfilePage extends StatelessWidget {
   }
 
   /// 取得頭像圖片並上傳。
-  Future<void> _pickAvatar(BuildContext context, AppState state, ImageSource source) async {
+  Future<void> _pickAvatar(
+    BuildContext context,
+    AppState state,
+    ImageSource source,
+  ) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final picker = ImagePicker();
@@ -234,7 +314,9 @@ class ProfilePage extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -245,13 +327,22 @@ class ProfilePage extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: Row(
                   children: [
-                    Text(AppStrings.pickPhoto,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    Text(
+                      AppStrings.pickPhoto,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                   ],
                 ),
               ),
               ListTile(
-                leading: const Icon(Icons.photo_camera_outlined, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.photo_camera_outlined,
+                  color: AppColors.primary,
+                ),
                 title: Text(AppStrings.takePhoto),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -259,7 +350,10 @@ class ProfilePage extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+                leading: const Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColors.primary,
+                ),
                 title: Text(AppStrings.chooseFromGallery),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -267,7 +361,10 @@ class ProfilePage extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.emoji_emotions_outlined, color: AppColors.accent),
+                leading: const Icon(
+                  Icons.emoji_emotions_outlined,
+                  color: AppColors.accent,
+                ),
                 title: Text(AppStrings.useEmoji),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -282,7 +379,11 @@ class ProfilePage extends StatelessWidget {
   }
 
   /// 從相機或相簿取得照片。
-  Future<void> _pickImage(BuildContext context, AppState state, ImageSource source) async {
+  Future<void> _pickImage(
+    BuildContext context,
+    AppState state,
+    ImageSource source,
+  ) async {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final picker = ImagePicker();
@@ -300,21 +401,40 @@ class ProfilePage extends StatelessWidget {
 
   /// 用 emoji 當佔位照片。
   Future<void> _pickEmoji(BuildContext context, AppState state) async {
-    const emojis = ['🌿', '🏞️', '☕', '🏃', '🎸', '🍜', '📸', '⛰️', '🏐', '🎯', '🌊', '🚴'];
+    const emojis = [
+      '🌿',
+      '🏞️',
+      '☕',
+      '🏃',
+      '🎸',
+      '🍜',
+      '📸',
+      '⛰️',
+      '🏐',
+      '🎯',
+      '🌊',
+      '🚴',
+    ];
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.background,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(AppStrings.useEmoji, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text(
+              AppStrings.useEmoji,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 16),
             Wrap(
-              spacing: 12, runSpacing: 12,
+              spacing: 12,
+              runSpacing: 12,
               children: [
                 for (final e in emojis)
                   GestureDetector(
@@ -323,9 +443,13 @@ class ProfilePage extends StatelessWidget {
                       Navigator.pop(ctx);
                     },
                     child: Container(
-                      width: 56, height: 56,
+                      width: 56,
+                      height: 56,
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(14)),
+                      decoration: BoxDecoration(
+                        color: AppColors.soft,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                       child: Text(e, style: const TextStyle(fontSize: 28)),
                     ),
                   ),
@@ -339,7 +463,12 @@ class ProfilePage extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.icon, required this.label, required this.value, required this.color});
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
   final IconData icon;
   final String label;
   final String value;
@@ -349,15 +478,31 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color),
           const SizedBox(height: 10),
-          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
@@ -377,8 +522,14 @@ class _PhotoGrid extends StatelessWidget {
       return Container(
         height: 90,
         alignment: Alignment.center,
-        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16)),
-        child: Text(AppStrings.noPhotos, style: const TextStyle(color: AppColors.textSecondary)),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          AppStrings.noPhotos,
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
       );
     }
     return Column(
@@ -389,7 +540,10 @@ class _PhotoGrid extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: photos.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4, crossAxisSpacing: 10, mainAxisSpacing: 10, childAspectRatio: 1,
+            crossAxisCount: 4,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            childAspectRatio: 1,
           ),
           itemBuilder: (context, i) => GestureDetector(
             onTap: () => _preview(context, photos[i]),
@@ -401,8 +555,10 @@ class _PhotoGrid extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(AppStrings.longPressToRemove,
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(
+          AppStrings.longPressToRemove,
+          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
       ],
     );
   }
@@ -436,10 +592,13 @@ class _PhotoTile extends StatelessWidget {
   final ProfilePhoto photo;
 
   Widget get _broken => Container(
-        color: AppColors.soft,
-        alignment: Alignment.center,
-        child: const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
-      );
+    color: AppColors.soft,
+    alignment: Alignment.center,
+    child: const Icon(
+      Icons.broken_image_outlined,
+      color: AppColors.textSecondary,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -459,13 +618,21 @@ class _PhotoTile extends StatelessWidget {
       return Stack(
         fit: StackFit.expand,
         children: [
-          Image.file(File(photo.value), fit: BoxFit.cover, errorBuilder: (context, _, _) => _broken),
+          Image.file(
+            File(photo.value),
+            fit: BoxFit.cover,
+            errorBuilder: (context, _, _) => _broken,
+          ),
           Container(
             color: Colors.black26,
             alignment: Alignment.center,
             child: const SizedBox(
-              width: 20, height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
             ),
           ),
         ],

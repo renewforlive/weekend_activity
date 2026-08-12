@@ -36,49 +36,91 @@ class AccountSection extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.soft),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                signedIn ? Icons.verified_user : Icons.person_outline,
-                color: signedIn ? AppColors.primary : AppColors.textSecondary,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      signedIn ? (state.userEmail ?? '') : AuthStrings.guestMode,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: signedIn ? AppColors.soft : AppColors.background,
+                      shape: BoxShape.circle,
                     ),
-                    if (!signedIn) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        AuthStrings.guestHint,
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ],
+                    child: Icon(
+                      signedIn
+                          ? Icons.verified_user_outlined
+                          : Icons.person_outline,
+                      color: signedIn
+                          ? AppColors.primaryDark
+                          : AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          signedIn
+                              ? (state.userEmail ?? '')
+                              : AuthStrings.guestMode,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          signedIn ? '已登入帳號' : AuthStrings.guestHint,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (signedIn) ...[
+                const Divider(height: 1, color: AppColors.soft),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _confirmSignOut(context),
+                  icon: const Icon(Icons.logout_outlined, size: 19),
+                  label: Text(AuthStrings.signOutAction),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primaryDark,
+                    side: const BorderSide(color: AppColors.primary),
+                    minimumSize: const Size.fromHeight(44),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              signedIn
-                  ? TextButton(
-                      onPressed: () => _confirmSignOut(context),
-                      child: Text(
-                        AuthStrings.signOutAction,
-                        style: const TextStyle(color: AppColors.danger),
-                      ),
-                    )
-                  : ElevatedButton(
-                      onPressed: () => _goSignIn(context),
-                      child: Text(AuthStrings.signInAction),
-                    ),
+                const SizedBox(height: 2),
+                TextButton.icon(
+                  onPressed: () => _confirmDeleteAccount(context),
+                  icon: const Icon(Icons.delete_forever_outlined, size: 18),
+                  label: Text(AuthStrings.deleteAccountAction),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                    minimumSize: const Size.fromHeight(42),
+                  ),
+                ),
+              ] else
+                ElevatedButton.icon(
+                  onPressed: () => _goSignIn(context),
+                  icon: const Icon(Icons.login, size: 19),
+                  label: Text(AuthStrings.signInAction),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(44),
+                  ),
+                ),
             ],
           ),
         ),
@@ -122,5 +164,48 @@ class AccountSection extends StatelessWidget {
     // 登出後回到匿名身分,重新載入該身分的資料。
     await AuthService.instance.signOut();
     await state.loadRemoteData();
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final state = context.read<AppState>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(AuthStrings.deleteAccountAction),
+        content: Text(AuthStrings.deleteAccountConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AuthStrings.maybeLater),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            child: Text(AuthStrings.deleteAccountAction),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final result = await AuthService.instance.deleteAccount();
+    if (!context.mounted) return;
+
+    if (result.isSuccess) {
+      state.clearAccountData();
+      await state.loadRemoteData();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(AuthStrings.deleteAccountSuccess)));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? AuthStrings.deleteAccountFailed),
+        ),
+      );
+    }
   }
 }

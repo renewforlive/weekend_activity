@@ -52,11 +52,17 @@ class _SignUpPageState extends State<SignUpPage> {
 
     if (result.isSuccess) {
       final messenger = ScaffoldMessenger.of(context);
-      await context.read<AppState>().loadRemoteData();
+      if (!result.requiresEmailConfirmation) {
+        await context.read<AppState>().loadRemoteData();
+      }
       if (!mounted) return;
       messenger.showSnackBar(
         SnackBar(
-          content: Text(AuthStrings.signUpSuccess),
+          content: Text(
+            result.requiresEmailConfirmation
+                ? AuthStrings.emailConfirmationSent
+                : AuthStrings.signUpSuccess,
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );

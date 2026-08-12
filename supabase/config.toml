@@ -1,0 +1,4 @@
+[functions.delete-account]
+# JWT verification is performed inside the function so it can verify the
+# caller and return a controlled 401 response.
+verify_jwt = false

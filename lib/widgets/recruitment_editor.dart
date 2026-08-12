@@ -19,6 +19,7 @@ Future<void> showRecruitmentEditor(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _RecruitmentEditorSheet(
       relatedActivity: relatedActivity,
@@ -33,7 +34,8 @@ class _RecruitmentEditorSheet extends StatefulWidget {
   final RecruitmentPost? editing;
 
   @override
-  State<_RecruitmentEditorSheet> createState() => _RecruitmentEditorSheetState();
+  State<_RecruitmentEditorSheet> createState() =>
+      _RecruitmentEditorSheetState();
 }
 
 class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
@@ -67,9 +69,14 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
       _gender = post.genderPref;
       _meetingTime = post.meetingTime;
     } else {
-      _title = TextEditingController(text: a == null ? '' : AppStrings.togetherGo(a.title));
+      _title = TextEditingController(
+        text: a == null ? '' : AppStrings.togetherGo(a.title),
+      );
       _content = TextEditingController(
-          text: a == null ? '' : AppStrings.recruitmentContentPrefill(a.city, a.venue));
+        text: a == null
+            ? ''
+            : AppStrings.recruitmentContentPrefill(a.city, a.venue),
+      );
       _headcount = TextEditingController(text: '4');
       _cost = TextEditingController(text: a?.cost.toString() ?? '0');
       _meetingPoint = TextEditingController();
@@ -109,7 +116,13 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
     if (time == null) return;
 
     setState(() {
-      _meetingTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _meetingTime = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -138,7 +151,9 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
       setState(() => _saving = false);
       if (!ok) return; // 錯誤訊息由 AppState 的 syncError 統一顯示
       navigator.pop();
-      messenger.showSnackBar(SnackBar(content: Text(AppStrings.recruitmentUpdated)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppStrings.recruitmentUpdated)),
+      );
       return;
     }
 
@@ -164,176 +179,272 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44, height: 4,
-                    decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(2)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(_isEditing ? AppStrings.editRecruitment : AppStrings.startRecruitment,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                const SizedBox(height: 4),
-                Text(AppStrings.recruitmentEditorSubtitle, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                const SizedBox(height: 18),
-                _Label(AppStrings.fieldTitle),
-                TextFormField(
-                  controller: _title,
-                  decoration: InputDecoration(hintText: AppStrings.titleHint),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? AppStrings.titleRequired : null,
-                ),
-                const SizedBox(height: 14),
-                _Label(AppStrings.fieldContent),
-                TextFormField(
-                  controller: _content,
-                  maxLines: 4,
-                  decoration: InputDecoration(hintText: AppStrings.contentHint),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? AppStrings.contentRequired : null,
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      child: FractionallySizedBox(
+        heightFactor: 0.92,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Row(
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _Label(AppStrings.headcountField),
-                          TextFormField(
-                            controller: _headcount,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: InputDecoration(suffixText: AppStrings.peopleUnit),
-                            validator: (v) {
-                              final n = int.tryParse(v ?? '');
-                              if (n == null || n < 1) return AppStrings.atLeastOnePerson;
-                              return null;
-                            },
+                          Text(
+                            _isEditing
+                                ? AppStrings.editRecruitment
+                                : AppStrings.startRecruitment,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            AppStrings.recruitmentEditorSubtitle,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _Label(AppStrings.costPerPerson),
-                          TextFormField(
-                            controller: _cost,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(prefixText: 'NT\$ '),
-                          ),
-                        ],
-                      ),
+                    IconButton(
+                      onPressed: _saving ? null : () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, size: 22),
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).closeButtonTooltip,
+                      color: AppColors.textSecondary,
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                _Label(AppStrings.genderLimit),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final g in GenderPref.values)
-                      ChoiceChip(
-                        label: Text(AppStrings.genderLabel(g)),
-                        selected: _gender == g,
-                        onSelected: (_) => setState(() => _gender = g),
-                        selectedColor: AppColors.primary,
-                        labelStyle: TextStyle(
-                          color: _gender == g ? Colors.white : AppColors.primaryDark,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        backgroundColor: AppColors.soft,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // 集合資訊:只有已核准的成員與發起者看得到,可留空之後再補。
-                Row(
-                  children: [
-                    const Icon(Icons.lock_outline, size: 16, color: AppColors.textSecondary),
-                    const SizedBox(width: 6),
-                    Text(AppStrings.meetingInfoTitle,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(AppStrings.meetingInfoOptional,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                const SizedBox(height: 12),
-                _Label(AppStrings.meetingPointField),
-                TextFormField(
-                  controller: _meetingPoint,
-                  decoration: InputDecoration(hintText: AppStrings.meetingPointHint),
-                ),
-                const SizedBox(height: 14),
-                _Label(AppStrings.meetingTimeField),
-                InkWell(
-                  onTap: _pickMeetingTime,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InputDecorator(
-                    decoration: const InputDecoration(),
-                    child: Row(
+              ),
+              const Divider(height: 1, color: AppColors.soft),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.schedule, size: 18, color: AppColors.primary),
-                        const SizedBox(width: 10),
+                        _Label(AppStrings.fieldTitle),
+                        TextFormField(
+                          controller: _title,
+                          decoration: InputDecoration(
+                            hintText: AppStrings.titleHint,
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? AppStrings.titleRequired
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        _Label(AppStrings.fieldContent),
+                        TextFormField(
+                          controller: _content,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: AppStrings.contentHint,
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? AppStrings.contentRequired
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _Label(AppStrings.headcountField),
+                                  TextFormField(
+                                    controller: _headcount,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    decoration: InputDecoration(
+                                      suffixText: AppStrings.peopleUnit,
+                                    ),
+                                    validator: (v) {
+                                      final n = int.tryParse(v ?? '');
+                                      if (n == null || n < 1) {
+                                        return AppStrings.atLeastOnePerson;
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _Label(AppStrings.costPerPerson),
+                                  TextFormField(
+                                    controller: _cost,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                    ],
+                                    decoration: const InputDecoration(
+                                      prefixText: 'NT\$ ',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        _Label(AppStrings.genderLimit),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            for (final g in GenderPref.values)
+                              ChoiceChip(
+                                label: Text(AppStrings.genderLabel(g)),
+                                selected: _gender == g,
+                                onSelected: (_) => setState(() => _gender = g),
+                                selectedColor: AppColors.primary,
+                                labelStyle: TextStyle(
+                                  color: _gender == g
+                                      ? Colors.white
+                                      : AppColors.primaryDark,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                backgroundColor: AppColors.soft,
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        // 集合資訊:只有已核准的成員與發起者看得到,可留空之後再補。
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.lock_outline,
+                              size: 16,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              AppStrings.meetingInfoTitle,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
                         Text(
-                          _meetingTime == null
-                              ? AppStrings.meetingTimeHint
-                              : AppDate.monthDayWeekTime(_meetingTime!),
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: _meetingTime == null ? AppColors.textSecondary : AppColors.textPrimary,
+                          AppStrings.meetingInfoOptional,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
                           ),
                         ),
-                        const Spacer(),
-                        if (_meetingTime != null)
-                          GestureDetector(
-                            onTap: () => setState(() => _meetingTime = null),
-                            child: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
+                        const SizedBox(height: 12),
+                        _Label(AppStrings.meetingPointField),
+                        TextFormField(
+                          controller: _meetingPoint,
+                          decoration: InputDecoration(
+                            hintText: AppStrings.meetingPointHint,
                           ),
+                        ),
+                        const SizedBox(height: 14),
+                        _Label(AppStrings.meetingTimeField),
+                        InkWell(
+                          onTap: _pickMeetingTime,
+                          borderRadius: BorderRadius.circular(12),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.schedule,
+                                  size: 18,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  _meetingTime == null
+                                      ? AppStrings.meetingTimeHint
+                                      : AppDate.monthDayWeekTime(_meetingTime!),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: _meetingTime == null
+                                        ? AppColors.textSecondary
+                                        : AppColors.textPrimary,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (_meetingTime != null)
+                                  GestureDetector(
+                                    onTap: () =>
+                                        setState(() => _meetingTime = null),
+                                    child: const Icon(
+                                      Icons.close,
+                                      size: 18,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _Label(AppStrings.contactField),
+                        TextFormField(
+                          controller: _contact,
+                          decoration: InputDecoration(
+                            hintText: AppStrings.contactHint,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _saving ? null : _submit,
+                            icon: _saving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.campaign),
+                            label: Text(
+                              _isEditing
+                                  ? AppStrings.saveRecruitment
+                                  : AppStrings.publishRecruitment,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
-                _Label(AppStrings.contactField),
-                TextFormField(
-                  controller: _contact,
-                  decoration: InputDecoration(hintText: AppStrings.contactHint),
-                ),
-                const SizedBox(height: 22),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _saving ? null : _submit,
-                    icon: _saving
-                        ? const SizedBox(
-                            width: 18, height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.campaign),
-                    label: Text(_isEditing ? AppStrings.saveRecruitment : AppStrings.publishRecruitment),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -348,7 +459,14 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      ),
     );
   }
 }

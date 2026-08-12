@@ -4,10 +4,11 @@ import 'supabase_config.dart';
 
 /// 認證結果。成功時 error 為 null。
 class AuthResult {
-  const AuthResult.success() : error = null;
-  const AuthResult.failure(this.error);
+  const AuthResult.success({this.requiresEmailConfirmation = false}) : error = null;
+  const AuthResult.failure(this.error) : requiresEmailConfirmation = false;
 
   final String? error;
+  final bool requiresEmailConfirmation;
   bool get isSuccess => error == null;
 }
 
@@ -46,13 +47,12 @@ class AuthService {
     try {
       if (isAnonymous) {
         // 匿名升級:綁定 email 與密碼,user id 不變。
-        await _auth.updateUser(
-          UserAttributes(email: email, password: password),
-        );
-      } else {
-        await _auth.signUp(email: email, password: password);
+        await _auth.signOut();
       }
-      return const AuthResult.success();
+      final response = await _auth.signUp(email: email, password: password);
+      return AuthResult.success(
+        requiresEmailConfirmation: response.session == null,
+      );
     } on AuthException catch (e) {
       return AuthResult.failure(_translate(e));
     } catch (e) {
@@ -91,6 +91,25 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
     await _auth.signInAnonymously();
+  }
+
+  /// Deletes the current account through a server-side Edge Function.
+  /// The privileged Auth deletion operation must never be placed in the app.
+  Future<AuthResult> deleteAccount() async {
+    if (!isAuthenticated) {
+      return const AuthResult.failure('請先登入帳號。');
+    }
+
+    try {
+      await SupabaseConfig.client.functions.invoke('delete-account');
+      await _auth.signOut();
+      await _auth.signInAnonymously();
+      return const AuthResult.success();
+    } on FunctionException catch (e) {
+      return AuthResult.failure(e.reasonPhrase ?? '註銷帳號失敗，請稍後再試。');
+    } catch (_) {
+      return const AuthResult.failure('註銷帳號失敗，請稍後再試。');
+    }
   }
 
   /// 把 Supabase 的英文錯誤轉成可讀訊息。

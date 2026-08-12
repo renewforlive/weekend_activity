@@ -24,6 +24,19 @@ class AuthStrings {
   static String get signUpAction => _pick('建立帳號', 'Create account');
   static String get sendResetAction => _pick('寄送重設信', 'Send reset link');
   static String get signOutAction => _pick('登出', 'Sign out');
+  static String get emailConfirmationSent => _pick(
+        '驗證信已寄出，請完成 Email 驗證後再登入。',
+        'Confirmation email sent. Verify your email before signing in.',
+      );
+  static String get deleteAccountAction => _pick('註銷帳號', 'Delete account');
+  static String get deleteAccountConfirm => _pick(
+        '註銷後將永久刪除帳號、個人資料、頭像、照片、行程與你建立的招募，且無法復原。確定要繼續嗎？',
+        'This permanently deletes your account, profile, avatar, photos, schedules, and groups you created. This cannot be undone.',
+      );
+  static String get deleteAccountSuccess =>
+      _pick('帳號已註銷。', 'Your account has been deleted.');
+  static String get deleteAccountFailed =>
+      _pick('註銷帳號失敗，請稍後再試。', 'Could not delete your account. Please try again.');
 
   // 導引文字
   static String get noAccountYet => _pick('還沒有帳號?', "Don't have an account?");

@@ -229,8 +229,7 @@ class RecruitmentPost {
       members.where((m) => m.isPending).toList();
 
   /// 已佔用的名額(未被拒絕者的 party 總和)。
-  int get joinedCount =>
-      activeMembers.fold(0, (sum, m) => sum + m.partySize);
+  int get joinedCount => activeMembers.fold(0, (sum, m) => sum + m.partySize);
 
   /// 剩餘名額。
   int get remainingSlots {
@@ -274,7 +273,10 @@ class RecruitmentPost {
 }
 
 /// 预约来源:自己发起的招募 或 加入他人的招募。
-enum BookingSource { hosted('我發起的招募'), joined('我加入的招募'), activity('我排入的活動');
+enum BookingSource {
+  hosted('我發起的招募'),
+  joined('我加入的招募'),
+  activity('我排入的活動');
 
   const BookingSource(this.label);
   final String label;
@@ -314,16 +316,16 @@ enum PhotoKind {
 /// 個人照片。可以是 emoji 佔位、本機檔案,或已上傳的遠端圖片。
 class ProfilePhoto {
   const ProfilePhoto.emoji(this.value, {this.id})
-      : kind = PhotoKind.emoji,
-        storagePath = null;
+    : kind = PhotoKind.emoji,
+      storagePath = null;
 
   const ProfilePhoto.file(this.value)
-      : kind = PhotoKind.file,
-        id = null,
-        storagePath = null;
+    : kind = PhotoKind.file,
+      id = null,
+      storagePath = null;
 
   const ProfilePhoto.remote(this.value, {this.id, this.storagePath})
-      : kind = PhotoKind.remote;
+    : kind = PhotoKind.remote;
 
   /// emoji 字元、本機路徑,或遠端網址。
   final String value;
@@ -346,14 +348,29 @@ class ProfilePhoto {
 
 /// 个人资料。
 class UserProfile {
+  static const int defaultAvatarColor = 0xFF3BB273;
+  static const List<int> avatarColors = [
+    defaultAvatarColor,
+    0xFFFF9F45,
+    0xFF7C6FF0,
+    0xFF4AA8D8,
+    0xFFE5896B,
+    0xFFEBA83A,
+  ];
+
+  static bool isValidAvatarColor(int color) => avatarColors.contains(color);
+
   UserProfile({
     required this.nickname,
     required this.bio,
-    this.avatarColorValue = 0xFF3BB273,
+    int avatarColorValue = defaultAvatarColor,
     this.avatarUrl,
     this.avatarPath,
     List<ProfilePhoto>? photos,
-  }) : photos = photos ?? <ProfilePhoto>[];
+  }) : avatarColorValue = isValidAvatarColor(avatarColorValue)
+           ? avatarColorValue
+           : defaultAvatarColor,
+       photos = photos ?? <ProfilePhoto>[];
 
   String nickname;
   String bio;
@@ -401,10 +418,14 @@ class TravelSpot {
       }
     }
     return TravelSpot(
-      id: json['id'] is int ? json['id'] as int : int.tryParse('${json['id']}') ?? 0,
+      id: json['id'] is int
+          ? json['id'] as int
+          : int.tryParse('${json['id']}') ?? 0,
       name: (json['name'] as String?)?.trim() ?? '',
       introduction: (json['introduction'] as String?)?.trim() ?? '',
-      openStatus: json['open_status'] is int ? json['open_status'] as int : int.tryParse('${json['open_status']}') ?? 0,
+      openStatus: json['open_status'] is int
+          ? json['open_status'] as int
+          : int.tryParse('${json['open_status']}') ?? 0,
       distric: (json['distric'] as String?)?.trim() ?? '',
       address: (json['address'] as String?)?.trim() ?? '',
       images: imgs,

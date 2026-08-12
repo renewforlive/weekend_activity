@@ -42,10 +42,24 @@ class ProfileRepository {
           .getPublicUrl(avatarPath);
     }
 
+    final rawAvatarColor = (row['avatar_color'] as num?)?.toInt();
+    final avatarColor =
+        rawAvatarColor != null && UserProfile.isValidAvatarColor(rawAvatarColor)
+        ? rawAvatarColor
+        : UserProfile.defaultAvatarColor;
+
+    // 舊帳號或空值一律補上預設色，確保每位使用者都恰有一個有效的頭像顏色。
+    if (rawAvatarColor != avatarColor) {
+      await SupabaseConfig.client
+          .from(_profiles)
+          .update({'avatar_color': avatarColor})
+          .eq('id', uid);
+    }
+
     return UserProfile(
       nickname: (nickname != null && nickname.isNotEmpty) ? nickname : '我',
       bio: (row['bio'] as String?) ?? '',
-      avatarColorValue: (row['avatar_color'] as num?)?.toInt() ?? 0xFF3BB273,
+      avatarColorValue: avatarColor,
       avatarUrl: avatarUrl,
       avatarPath: avatarPath,
       photos: photos,
@@ -96,9 +110,12 @@ class ProfileRepository {
     final file = File(localPath);
     if (!await file.exists()) return null;
 
-    final ext = p.extension(localPath).isNotEmpty ? p.extension(localPath) : '.jpg';
+    final ext = p.extension(localPath).isNotEmpty
+        ? p.extension(localPath)
+        : '.jpg';
     // 放在 avatar 子資料夾與照片牆區隔;第一層仍是 uid 以符合 Storage 政策。
-    final storagePath = '$uid/avatar/${DateTime.now().millisecondsSinceEpoch}$ext';
+    final storagePath =
+        '$uid/avatar/${DateTime.now().millisecondsSinceEpoch}$ext';
 
     await SupabaseConfig.client.storage
         .from(SupabaseConfig.photoBucket)
@@ -188,7 +205,9 @@ class ProfileRepository {
     if (!await file.exists()) return null;
 
     // 路徑格式 {uid}/{timestamp}{ext},Storage 政策以第一層資料夾比對身分。
-    final ext = p.extension(localPath).isNotEmpty ? p.extension(localPath) : '.jpg';
+    final ext = p.extension(localPath).isNotEmpty
+        ? p.extension(localPath)
+        : '.jpg';
     final storagePath = '$uid/${DateTime.now().millisecondsSinceEpoch}$ext';
 
     await SupabaseConfig.client.storage
