@@ -2,13 +2,7 @@ import '../models/models.dart';
 import 'supabase_config.dart';
 
 /// 加入招募的結果。
-enum JoinResult {
-  ok,
-  full,
-  notFound,
-  notAuthenticated,
-  error,
-}
+enum JoinResult { ok, full, notFound, notAuthenticated, error }
 
 /// 審核成員或更新招募的結果。
 enum HostActionResult {
@@ -99,12 +93,14 @@ class RecruitmentRepository {
       for (final m in rawMembers) {
         if (m is! Map || m['user_id'] is! String) continue;
         final uid = m['user_id'] as String;
-        members.add(RecruitmentMember(
-          userId: uid,
-          nickname: nicknames[uid] ?? '匿名',
-          status: MemberStatus.fromText(m['status'] as String?),
-          guestCount: (m['guest_count'] as num?)?.toInt() ?? 0,
-        ));
+        members.add(
+          RecruitmentMember(
+            userId: uid,
+            nickname: nicknames[uid] ?? '匿名',
+            status: MemberStatus.fromText(m['status'] as String?),
+            guestCount: (m['guest_count'] as num?)?.toInt() ?? 0,
+          ),
+        );
       }
     }
 
@@ -139,10 +135,19 @@ class RecruitmentRepository {
       genderPref: _genderFrom(row['gender_pref'] as String?),
       cost: (row['cost'] as num?)?.toInt() ?? 0,
       author: author,
-      createdAt: DateTime.tryParse('${row['created_at']}')?.toLocal() ?? DateTime.now(),
+      createdAt:
+          DateTime.tryParse('${row['created_at']}')?.toLocal() ??
+          DateTime.now(),
       relatedActivity: related,
+      city: (row['activity_city'] as String?) ?? '',
+      activityPlace: (row['activity_venue'] as String?) ?? '',
+      activityDate: actDate == null
+          ? null
+          : DateTime.tryParse(actDate)?.toLocal(),
       meetingPoint: (row['meeting_point'] as String?) ?? '',
-      meetingTime: meetingRaw == null ? null : DateTime.tryParse(meetingRaw)?.toLocal(),
+      meetingTime: meetingRaw == null
+          ? null
+          : DateTime.tryParse(meetingRaw)?.toLocal(),
       contactInfo: (row['contact_info'] as String?) ?? '',
       members: members,
     );
@@ -173,6 +178,9 @@ class RecruitmentRepository {
     required GenderPref genderPref,
     required int cost,
     Activity? relatedActivity,
+    required String city,
+    required String activityPlace,
+    required DateTime activityDate,
     String meetingPoint = '',
     DateTime? meetingTime,
     String contactInfo = '',
@@ -192,8 +200,11 @@ class RecruitmentRepository {
           'gender_pref': _genderTo(genderPref),
           'cost': cost,
           'activity_title': relatedActivity?.title,
-          'activity_city': relatedActivity?.city,
-          'activity_date': relatedActivity?.date.toUtc().toIso8601String(),
+          'activity_city': relatedActivity?.city ?? city,
+          'activity_venue': relatedActivity?.venue ?? activityPlace,
+          'activity_date': (relatedActivity?.date ?? activityDate)
+              .toUtc()
+              .toIso8601String(),
           'meeting_point': meetingPoint.isEmpty ? null : meetingPoint,
           'meeting_time': meetingTime?.toUtc().toIso8601String(),
           'contact_info': contactInfo.isEmpty ? null : contactInfo,
@@ -216,6 +227,9 @@ class RecruitmentRepository {
     required int headcount,
     required GenderPref genderPref,
     required int cost,
+    required String city,
+    required String activityPlace,
+    required DateTime activityDate,
     String meetingPoint = '',
     DateTime? meetingTime,
     String contactInfo = '',
@@ -230,6 +244,9 @@ class RecruitmentRepository {
           'p_headcount': headcount,
           'p_gender_pref': _genderTo(genderPref),
           'p_cost': cost,
+          'p_activity_city': city,
+          'p_activity_venue': activityPlace,
+          'p_activity_date': activityDate.toUtc().toIso8601String(),
           'p_meeting_point': meetingPoint.isEmpty ? null : meetingPoint,
           'p_meeting_time': meetingTime?.toUtc().toIso8601String(),
           'p_contact_info': contactInfo.isEmpty ? null : contactInfo,

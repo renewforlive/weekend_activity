@@ -6,6 +6,8 @@ import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
+import 'activity_detail_page.dart';
+import 'booked_recruitment_detail_page.dart';
 
 /// 行程頁:週曆檢視。顯示一週日期,點日期看當天行程,
 /// 可左右換週,並用日曆鈕跳到任一天。
@@ -88,7 +90,8 @@ class _SchedulePageState extends State<SchedulePage> {
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                     itemCount: dayItems.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) => _ScheduleCard(item: dayItems[i]),
+                    itemBuilder: (context, i) =>
+                        _ScheduleCard(item: dayItems[i]),
                   ),
           ),
         ],
@@ -101,10 +104,17 @@ class _SchedulePageState extends State<SchedulePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.event_available, size: 56, color: AppColors.textSecondary),
+          const Icon(
+            Icons.event_available,
+            size: 56,
+            color: AppColors.textSecondary,
+          ),
           const SizedBox(height: 12),
-          Text(AppStrings.noScheduleOnDay,
-              textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
+          Text(
+            AppStrings.noScheduleOnDay,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+          ),
         ],
       ),
     );
@@ -141,15 +151,25 @@ class _WeekBar extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconButton(onPressed: onPrev, icon: const Icon(Icons.chevron_left, color: AppColors.primary)),
+              IconButton(
+                onPressed: onPrev,
+                icon: const Icon(Icons.chevron_left, color: AppColors.primary),
+              ),
               Expanded(
                 child: Text(
                   '${weekStart.month}/${weekStart.day} - ${weekEnd.month}/${weekEnd.day}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
-              IconButton(onPressed: onNext, icon: const Icon(Icons.chevron_right, color: AppColors.primary)),
+              IconButton(
+                onPressed: onNext,
+                icon: const Icon(Icons.chevron_right, color: AppColors.primary),
+              ),
             ],
           ),
           Row(
@@ -159,9 +179,17 @@ class _WeekBar extends StatelessWidget {
                   child: _DayCell(
                     day: weekStart.add(Duration(days: i)),
                     weekName: _weekNames[i],
-                    selected: _sameDay(weekStart.add(Duration(days: i)), selectedDay),
-                    isToday: _sameDay(weekStart.add(Duration(days: i)), isToday),
-                    hasSchedule: hasScheduleOn(weekStart.add(Duration(days: i))),
+                    selected: _sameDay(
+                      weekStart.add(Duration(days: i)),
+                      selectedDay,
+                    ),
+                    isToday: _sameDay(
+                      weekStart.add(Duration(days: i)),
+                      isToday,
+                    ),
+                    hasSchedule: hasScheduleOn(
+                      weekStart.add(Duration(days: i)),
+                    ),
                     onTap: () => onSelectDay(weekStart.add(Duration(days: i))),
                   ),
                 ),
@@ -201,15 +229,24 @@ class _DayCell extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
         child: Column(
           children: [
-            Text(weekName, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text(
+              weekName,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
             const SizedBox(height: 6),
             Container(
-              width: 34, height: 34,
+              width: 34,
+              height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected ? AppColors.primary : Colors.transparent,
                 shape: BoxShape.circle,
-                border: isToday && !selected ? Border.all(color: AppColors.primary, width: 1.5) : null,
+                border: isToday && !selected
+                    ? Border.all(color: AppColors.primary, width: 1.5)
+                    : null,
               ),
               child: Text(
                 '${day.day}',
@@ -222,7 +259,8 @@ class _DayCell extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Container(
-              width: 6, height: 6,
+              width: 6,
+              height: 6,
               decoration: BoxDecoration(
                 color: hasSchedule ? AppColors.accent : Colors.transparent,
                 shape: BoxShape.circle,
@@ -243,66 +281,140 @@ class _ScheduleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.read<AppState>();
     final a = item.activity;
+    final isRecruitment = a.id.startsWith('recruitment_');
     final dateStr = AppDate.monthDayWeekTime(a.date);
     final remindStr = AppDate.monthDayTime(item.remindAt);
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(color: a.category.color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                  child: Icon(a.category.icon, color: a.category.color),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(a.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                      const SizedBox(height: 2),
-                      Text('$dateStr · ${a.city}', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                    ],
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () {
+          final page = isRecruitment
+              ? BookedRecruitmentDetailPage(
+                  recruitmentId: a.id.substring('recruitment_'.length),
+                )
+              : ActivityDetailPage(activity: a);
+          Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => page));
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: a.category.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(a.category.icon, color: a.category.color),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => state.removeFromSchedule(item.id),
-                  icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-                ),
-              ],
-            ),
-            const Divider(height: 24),
-            Row(
-              children: [
-                const Icon(Icons.notifications_active_outlined, size: 20, color: AppColors.accent),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    item.reminderEnabled ? AppStrings.remindAtLabel(remindStr) : AppStrings.reminderOff,
-                    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          a.title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        if (isRecruitment)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.accent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Text(
+                                '招募活動',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$dateStr · ${a.city}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Switch(
-                  value: item.reminderEnabled,
-                  activeThumbColor: AppColors.primary,
-                  onChanged: (v) => state.updateReminder(item.id, enabled: v),
-                ),
-              ],
-            ),
-            if (item.reminderEnabled)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => _pickRemind(context, state),
-                  icon: const Icon(Icons.edit_calendar, size: 18, color: AppColors.primary),
-                  label: Text(AppStrings.adjustReminder, style: const TextStyle(color: AppColors.primary)),
-                ),
+                  if (!isRecruitment)
+                    IconButton(
+                      onPressed: () => state.removeFromSchedule(item.id),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: AppColors.danger,
+                      ),
+                    ),
+                ],
               ),
-          ],
+              const Divider(height: 24),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.notifications_active_outlined,
+                    size: 20,
+                    color: AppColors.accent,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item.reminderEnabled
+                          ? AppStrings.remindAtLabel(remindStr)
+                          : AppStrings.reminderOff,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: item.reminderEnabled,
+                    activeThumbColor: AppColors.primary,
+                    onChanged: (v) => state.updateReminder(item.id, enabled: v),
+                  ),
+                ],
+              ),
+              if (item.reminderEnabled)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _pickRemind(context, state),
+                    icon: const Icon(
+                      Icons.edit_calendar,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    label: Text(
+                      AppStrings.adjustReminder,
+                      style: const TextStyle(color: AppColors.primary),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -322,7 +434,13 @@ class _ScheduleCard extends StatelessWidget {
       initialTime: TimeOfDay.fromDateTime(item.remindAt),
     );
     if (time == null) return;
-    final remind = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final remind = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
     state.updateReminder(item.id, remindAt: remind, enabled: true);
   }
 }

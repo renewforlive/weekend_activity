@@ -43,6 +43,7 @@ class Activity {
     required this.category,
     required this.description,
     required this.cost,
+    this.detailsUrl = '',
   });
 
   final String id;
@@ -52,9 +53,21 @@ class Activity {
   final DateTime date;
   final ActivityCategory category;
   final String description;
+  final String detailsUrl;
   final int cost; // 参加费用(元),0 表示免费
 
   /// 由台北景點建立一場活動(景點無固定日期,需帶入使用者選定的日期)。
+  String get resolvedDetailsUrl {
+    if (detailsUrl.isNotEmpty) return detailsUrl;
+    if (!id.startsWith('culture_')) return '';
+    final raw = id.substring('culture_'.length);
+    final separator = raw.lastIndexOf('_');
+    final uid = separator > 0 ? raw.substring(0, separator) : raw;
+    return uid.isEmpty
+        ? ''
+        : 'https://cloud.culture.tw/frontsite/inquiry/eventInquiryAction.do?method=showEventDetail&uid=$uid';
+  }
+
   factory Activity.fromSpot(TravelSpot spot, DateTime date) {
     return Activity(
       id: 'spot_${spot.id}',
@@ -187,6 +200,9 @@ class RecruitmentPost {
     required this.author,
     required this.createdAt,
     this.relatedActivity,
+    this.city = '',
+    this.activityPlace = '',
+    this.activityDate,
     this.meetingPoint = '',
     this.meetingTime,
     this.contactInfo = '',
@@ -205,6 +221,12 @@ class RecruitmentPost {
   final Activity? relatedActivity; // 可選:關聯的活動
 
   /// 集合地點。與活動地點分開,可能是車站、停車場等。
+  final String city;
+
+  final String activityPlace;
+
+  final DateTime? activityDate;
+
   final String meetingPoint;
 
   /// 集合時間。與活動的出行時間分開(通常早於出行時間)。
@@ -292,6 +314,7 @@ class Booking {
     this.city,
     this.cost = 0,
     this.recruitmentId,
+    this.activity,
   });
 
   final String id;
@@ -303,6 +326,7 @@ class Booking {
 
   /// The recruitment this booking was created from. Null for regular activity bookings.
   final String? recruitmentId;
+  final Activity? activity;
 }
 
 /// 照片來源類型。

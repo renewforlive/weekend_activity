@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
+import '../data/mock_data.dart';
 import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -44,10 +45,13 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
   late final TextEditingController _content;
   late final TextEditingController _headcount;
   late final TextEditingController _cost;
+  late final TextEditingController _activityPlace;
   late final TextEditingController _meetingPoint;
   late final TextEditingController _contact;
   GenderPref _gender = GenderPref.any;
   DateTime? _meetingTime;
+  DateTime? _activityDate;
+  String _city = taiwanCities.first;
   bool _saving = false;
 
   bool get _isEditing => widget.editing != null;
@@ -64,10 +68,13 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
       _content = TextEditingController(text: post.content);
       _headcount = TextEditingController(text: post.headcount.toString());
       _cost = TextEditingController(text: post.cost.toString());
+      _activityPlace = TextEditingController(text: post.activityPlace);
       _meetingPoint = TextEditingController(text: post.meetingPoint);
       _contact = TextEditingController(text: post.contactInfo);
       _gender = post.genderPref;
       _meetingTime = post.meetingTime;
+      _activityDate = post.activityDate;
+      _city = post.city.isEmpty ? taiwanCities.first : post.city;
     } else {
       _title = TextEditingController(
         text: a == null ? '' : AppStrings.togetherGo(a.title),
@@ -79,8 +86,11 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
       );
       _headcount = TextEditingController(text: '4');
       _cost = TextEditingController(text: a?.cost.toString() ?? '0');
+      _activityPlace = TextEditingController(text: a?.venue ?? '');
       _meetingPoint = TextEditingController();
       _contact = TextEditingController();
+      _activityDate = a?.date;
+      _city = a?.city ?? taiwanCities.first;
     }
   }
 
@@ -90,36 +100,49 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
     _content.dispose();
     _headcount.dispose();
     _cost.dispose();
+    _activityPlace.dispose();
     _meetingPoint.dispose();
     _contact.dispose();
     super.dispose();
   }
 
   /// 選集合時間。與活動的出行時間分開,通常早於出行時間。
-  Future<void> _pickMeetingTime() async {
+  Future<void> _pickActivityDate() async {
     final now = DateTime.now();
-    final base = _meetingTime ?? widget.editing?.relatedActivity?.date ?? now;
-    final initial = base.isBefore(now) ? now : base;
-
+    final initial = _activityDate ?? now;
     final date = await showDatePicker(
       context: context,
-      initialDate: initial,
-      firstDate: now.subtract(const Duration(days: 1)),
+      initialDate: initial.isBefore(now) ? now : initial,
+      firstDate: DateTime(now.year, now.month, now.day),
       lastDate: now.add(const Duration(days: 365)),
     );
     if (date == null || !mounted) return;
+    setState(() {
+      final previous = _activityDate;
+      _activityDate = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        previous?.hour ?? 10,
+        previous?.minute ?? 0,
+      );
+    });
+  }
+
+  Future<void> _pickMeetingTime() async {
+    final base = _meetingTime ?? _activityDate ?? DateTime.now();
 
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
+      initialTime: TimeOfDay.fromDateTime(base),
     );
     if (time == null) return;
 
     setState(() {
       _meetingTime = DateTime(
-        date.year,
-        date.month,
-        date.day,
+        base.year,
+        base.month,
+        base.day,
         time.hour,
         time.minute,
       );
@@ -128,6 +151,12 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_activityDate == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('請選擇活動日期')));
+      return;
+    }
     setState(() => _saving = true);
 
     final state = context.read<AppState>();
@@ -143,6 +172,9 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
         headcount: int.parse(_headcount.text),
         genderPref: _gender,
         cost: int.tryParse(_cost.text) ?? 0,
+        city: _city,
+        activityPlace: _activityPlace.text.trim(),
+        activityDate: _activityDate!,
         meetingPoint: _meetingPoint.text.trim(),
         meetingTime: _meetingTime,
         contactInfo: _contact.text.trim(),
@@ -164,6 +196,9 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
       genderPref: _gender,
       cost: int.tryParse(_cost.text) ?? 0,
       relatedActivity: widget.relatedActivity,
+      city: _city,
+      activityPlace: _activityPlace.text.trim(),
+      activityDate: _activityDate!,
       meetingPoint: _meetingPoint.text.trim(),
       meetingTime: _meetingTime,
       contactInfo: _contact.text.trim(),
@@ -261,6 +296,65 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                               : null,
                         ),
                         const SizedBox(height: 14),
+                        const Text(
+                          '活動資訊',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _Label('活動縣市 *'),
+                        DropdownButtonFormField<String>(
+                          initialValue: _city,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.location_city_outlined),
+                          ),
+                          items: [
+                            for (final city in taiwanCities)
+                              DropdownMenuItem(value: city, child: Text(city)),
+                          ],
+                          onChanged: (city) {
+                            if (city != null) setState(() => _city = city);
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        _Label('活動地點 *'),
+                        TextFormField(
+                          controller: _activityPlace,
+                          decoration: const InputDecoration(
+                            hintText: '例如：台北流行音樂中心、阿里山森林步道',
+                            prefixIcon: Icon(Icons.place_outlined),
+                          ),
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? '請填寫活動地點'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        _Label('活動日期 *'),
+                        InkWell(
+                          onTap: _pickActivityDate,
+                          borderRadius: BorderRadius.circular(12),
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.calendar_month_outlined),
+                            ),
+                            child: Text(
+                              _activityDate == null
+                                  ? '請選擇活動日期'
+                                  : AppDate.monthDayWeekTime(_activityDate!),
+                              style: TextStyle(
+                                color: _activityDate == null
+                                    ? AppColors.textSecondary
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -386,7 +480,9 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                                 Text(
                                   _meetingTime == null
                                       ? AppStrings.meetingTimeHint
-                                      : AppDate.monthDayWeekTime(_meetingTime!),
+                                      : TimeOfDay.fromDateTime(
+                                          _meetingTime!,
+                                        ).format(context),
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: _meetingTime == null

@@ -149,6 +149,7 @@ class AppState extends ChangeNotifier {
       debugPrint('載入行程失敗: $e');
     }
 
+    await _syncConfirmedRecruitmentSchedules();
     _rebuildBookings();
 
     if (errors.isNotEmpty) {
@@ -401,6 +402,7 @@ class AppState extends ChangeNotifier {
             category: activity.category,
             description: activity.description,
             cost: activity.cost,
+            detailsUrl: activity.detailsUrl,
           )
         : activity;
     final defaultRemind = _defaultRemindFor(effective.date);
@@ -445,6 +447,68 @@ class AppState extends ChangeNotifier {
     _rebuildBookings();
     notifyListeners();
     await _scheduleRepo.remove(scheduleId);
+  }
+
+  /// Keeps confirmed recruitment activities in the calendar. Regular scheduled
+  /// activities remain independent and are never turned into bookings.
+  Future<void> _syncConfirmedRecruitmentSchedules() async {
+    final uid = currentUserId;
+    if (uid == null) return;
+
+    final confirmed = _recruitments
+        .where((post) => post.isHostedBy(uid) || post.isApprovedFor(uid))
+        .toList();
+    final expectedActivityIds = {
+      for (final post in confirmed) 'recruitment_${post.id}',
+    };
+    final obsolete = _schedule
+        .where(
+          (item) =>
+              item.activity.id.startsWith('recruitment_') &&
+              !expectedActivityIds.contains(item.activity.id),
+        )
+        .toList();
+
+    for (final item in obsolete) {
+      _schedule.remove(item);
+      NotificationService.instance.cancel(item.id.hashCode);
+      try {
+        await _scheduleRepo.remove(item.id);
+      } catch (_) {
+        // It will be reconciled again the next time data is loaded.
+      }
+    }
+
+    for (final post in confirmed) {
+      final activity = _scheduleActivityForRecruitment(post);
+      if (activity == null || isScheduled(activity)) continue;
+      final item = await _scheduleRepo.add(
+        activity,
+        _defaultRemindFor(activity.date),
+      );
+      if (item == null) continue;
+      _schedule.add(item);
+      _syncReminder(item);
+    }
+  }
+
+  Activity? _scheduleActivityForRecruitment(RecruitmentPost post) {
+    final related = post.relatedActivity;
+    final date = related?.date ?? post.activityDate;
+    if (date == null) return null;
+
+    return Activity(
+      id: 'recruitment_${post.id}',
+      title: post.title,
+      city: related?.city ?? post.city,
+      venue: related != null && related.venue.isNotEmpty
+          ? related.venue
+          : post.activityPlace,
+      date: date,
+      category: related?.category ?? ActivityCategory.outdoor,
+      description: post.content,
+      cost: post.cost,
+    );
   }
 
   Future<void> updateReminder(
@@ -508,6 +572,9 @@ class AppState extends ChangeNotifier {
     required GenderPref genderPref,
     required int cost,
     Activity? relatedActivity,
+    required String city,
+    required String activityPlace,
+    required DateTime activityDate,
     String meetingPoint = '',
     DateTime? meetingTime,
     String contactInfo = '',
@@ -520,6 +587,9 @@ class AppState extends ChangeNotifier {
         genderPref: genderPref,
         cost: cost,
         relatedActivity: relatedActivity,
+        city: city,
+        activityPlace: activityPlace,
+        activityDate: activityDate,
         meetingPoint: meetingPoint,
         meetingTime: meetingTime,
         contactInfo: contactInfo,
@@ -539,6 +609,9 @@ class AppState extends ChangeNotifier {
     required int headcount,
     required GenderPref genderPref,
     required int cost,
+    required String city,
+    required String activityPlace,
+    required DateTime activityDate,
     String meetingPoint = '',
     DateTime? meetingTime,
     String contactInfo = '',
@@ -550,6 +623,9 @@ class AppState extends ChangeNotifier {
       headcount: headcount,
       genderPref: genderPref,
       cost: cost,
+      city: city,
+      activityPlace: activityPlace,
+      activityDate: activityDate,
       meetingPoint: meetingPoint,
       meetingTime: meetingTime,
       contactInfo: contactInfo,
@@ -667,26 +743,13 @@ class AppState extends ChangeNotifier {
     _bookings.clear();
 
     // 我排入的活動
-    for (final s in _schedule) {
-      _bookings.add(
-        Booking(
-          id: 'book_sch_${s.id}',
-          title: s.activity.title,
-          date: s.activity.date,
-          source: BookingSource.activity,
-          city: s.activity.city,
-          cost: s.activity.cost,
-        ),
-      );
-    }
-
     if (uid == null) return;
 
     // 我發起 / 我加入的招募
     for (final r in _recruitments) {
       final hosted = r.isHostedBy(uid);
-      final joined = r.isJoinedBy(uid);
-      if (!hosted && !joined) continue;
+      final approved = r.isApprovedFor(uid);
+      if (!hosted && !approved) continue;
       _bookings.add(
         Booking(
           id: 'book_rec_${r.id}',

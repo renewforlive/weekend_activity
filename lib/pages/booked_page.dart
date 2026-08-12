@@ -5,6 +5,7 @@ import '../data/app_state.dart';
 import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import 'booked_recruitment_detail_page.dart';
+import 'activity_detail_page.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
 
@@ -121,13 +122,20 @@ class _BookingCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: booking.recruitmentId == null
-            ? null
-            : () => Navigator.of(context).push(
+        onTap: booking.recruitmentId != null
+            ? () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => BookedRecruitmentDetailPage(
                     recruitmentId: booking.recruitmentId!,
                   ),
+                ),
+              )
+            : booking.activity == null
+            ? null
+            : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      ActivityDetailPage(activity: booking.activity!),
                 ),
               ),
         child: Padding(
@@ -178,11 +186,15 @@ class _BookingCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          dateStr,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
+                        Expanded(
+                          child: Text(
+                            dateStr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ),
                         if (booking.city != null) ...[
@@ -200,17 +212,24 @@ class _BookingCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Text(
-                AppStrings.costLabel(booking.cost),
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: booking.cost == 0
-                      ? AppColors.primaryDark
-                      : AppColors.accent,
+              SizedBox(
+                width: 56,
+                child: Text(
+                  AppStrings.costLabel(booking.cost),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: booking.cost == 0
+                        ? AppColors.primaryDark
+                        : AppColors.accent,
+                  ),
                 ),
               ),
-              if (booking.recruitmentId != null) ...[
+              if (booking.recruitmentId != null ||
+                  booking.activity != null) ...[
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right, color: AppColors.textSecondary),
               ],

@@ -12,7 +12,8 @@
 alter table public.recruitments
   add column if not exists meeting_point text,
   add column if not exists meeting_time  timestamptz,
-  add column if not exists contact_info   text;
+  add column if not exists contact_info   text,
+  add column if not exists activity_venue text;
 
 -- 2. recruitment_members:審核狀態 + 帶人數
 --    既有資料預設 approved,避免升級後舊成員消失。
@@ -155,6 +156,9 @@ create or replace function public.update_recruitment(
   p_headcount      int,
   p_gender_pref    text,
   p_cost           int,
+  p_activity_city  text,
+  p_activity_venue text,
+  p_activity_date  timestamptz,
   p_meeting_point  text,
   p_meeting_time   timestamptz,
   p_contact_info   text
@@ -200,6 +204,9 @@ begin
          headcount     = p_headcount,
          gender_pref   = p_gender_pref,
          cost          = p_cost,
+         activity_city = p_activity_city,
+         activity_venue = p_activity_venue,
+         activity_date = p_activity_date,
          meeting_point = p_meeting_point,
          meeting_time  = p_meeting_time,
          contact_info  = p_contact_info

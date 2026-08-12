@@ -1,3 +1,5 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
+
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -43,7 +45,10 @@ class CultureApiService {
     if (title.isEmpty) return null;
 
     final showInfoList = json['showInfo'];
-    final firstShow = (showInfoList is List && showInfoList.isNotEmpty && showInfoList.first is Map)
+    final firstShow =
+        (showInfoList is List &&
+            showInfoList.isNotEmpty &&
+            showInfoList.first is Map)
         ? showInfoList.first as Map
         : const {};
 
@@ -65,24 +70,54 @@ class CultureApiService {
       id: id,
       title: title,
       city: city,
-      venue: locationName.isNotEmpty ? locationName : _venueFromLocation(locationRaw),
+      venue: locationName.isNotEmpty
+          ? locationName
+          : _venueFromLocation(locationRaw),
       date: date,
       category: _mapCategory((json['category'] ?? '').toString()),
       description: _cleanHtml((json['descriptionFilterHtml'] ?? '').toString()),
       cost: _parseCost((firstShow['price'] ?? '').toString()),
+      detailsUrl: _firstUrl(json['webSales'], json['sourceWebPromote']),
     );
+  }
+
+  String _firstUrl(dynamic sales, dynamic promote) {
+    for (final value in [sales, promote]) {
+      final url = (value ?? '').toString().trim();
+      if (url.startsWith('https://') || url.startsWith('http://')) return url;
+    }
+    return '';
   }
 
   /// 台灣縣市對照:location 常以「臺北市…」「台北市…」開頭,統一成本 App 用字。
   static const Map<String, String> _cityAliases = {
-    '臺北市': '台北市', '台北市': '台北市',
-    '新北市': '新北市', '基隆市': '基隆市', '桃園市': '桃園市', '桃園縣': '桃園市',
-    '新竹市': '新竹市', '新竹縣': '新竹縣', '苗栗縣': '苗栗縣',
-    '臺中市': '台中市', '台中市': '台中市', '彰化縣': '彰化縣', '南投縣': '南投縣',
-    '雲林縣': '雲林縣', '嘉義市': '嘉義市', '嘉義縣': '嘉義縣',
-    '臺南市': '台南市', '台南市': '台南市', '高雄市': '高雄市', '屏東縣': '屏東縣',
-    '宜蘭縣': '宜蘭縣', '花蓮縣': '花蓮縣', '臺東縣': '台東縣', '台東縣': '台東縣',
-    '澎湖縣': '澎湖縣', '金門縣': '金門縣', '連江縣': '連江縣',
+    '臺北市': '台北市',
+    '台北市': '台北市',
+    '新北市': '新北市',
+    '基隆市': '基隆市',
+    '桃園市': '桃園市',
+    '桃園縣': '桃園市',
+    '新竹市': '新竹市',
+    '新竹縣': '新竹縣',
+    '苗栗縣': '苗栗縣',
+    '臺中市': '台中市',
+    '台中市': '台中市',
+    '彰化縣': '彰化縣',
+    '南投縣': '南投縣',
+    '雲林縣': '雲林縣',
+    '嘉義市': '嘉義市',
+    '嘉義縣': '嘉義縣',
+    '臺南市': '台南市',
+    '台南市': '台南市',
+    '高雄市': '高雄市',
+    '屏東縣': '屏東縣',
+    '宜蘭縣': '宜蘭縣',
+    '花蓮縣': '花蓮縣',
+    '臺東縣': '台東縣',
+    '台東縣': '台東縣',
+    '澎湖縣': '澎湖縣',
+    '金門縣': '金門縣',
+    '連江縣': '連江縣',
   };
 
   String? _parseCity(String location) {
@@ -137,7 +172,8 @@ class CultureApiService {
 
   int _parseCost(String price) {
     if (price.isEmpty) return 0;
-    if (price.contains('免費') || price.contains('免票') || price.contains('自由')) return 0;
+    if (price.contains('免費') || price.contains('免票') || price.contains('自由'))
+      return 0;
     // 抓第一組數字當代表票價。
     final m = RegExp(r'(\d{2,6})').firstMatch(price.replaceAll(',', ''));
     if (m == null) return 0;

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
+import '../data/mock_data.dart';
 import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
@@ -16,13 +17,30 @@ import '../widgets/require_sign_in.dart';
 /// * 發起者:修改鈕 + 審核名單(同意/拒絕),看得到集合資訊,沒有加入/退出鈕。
 /// * 已申請者:依審核狀態顯示「等待同意」或「已加入」,核准後才看得到集合資訊。
 /// * 未加入者:申請鈕(可帶人),看不到集合資訊。
-class RecruitmentPage extends StatelessWidget {
+class RecruitmentPage extends StatefulWidget {
   const RecruitmentPage({super.key});
+
+  @override
+  State<RecruitmentPage> createState() => _RecruitmentPageState();
+}
+
+enum _DateFilter { all, week, month }
+
+class _RecruitmentPageState extends State<RecruitmentPage> {
+  String _city = '全部縣市';
+  _DateFilter _dateFilter = _DateFilter.all;
+  DateTimeRange? _customDateRange;
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final posts = state.recruitments;
+    final posts = state.recruitments.where(_matchesFilters).toList();
+    final mine = posts
+        .where((post) => post.isHostedBy(state.currentUserId))
+        .toList();
+    final others = posts
+        .where((post) => !post.isHostedBy(state.currentUserId))
+        .toList();
     return Scaffold(
       appBar: AppBar(
         title: Text(AppStrings.recruitmentTitle),
@@ -37,18 +55,61 @@ class RecruitmentPage extends StatelessWidget {
       ),
       body: RefreshIndicator(
         onRefresh: state.loadRemoteData,
-        child: posts.isEmpty
+        child: posts.isEmpty && state.recruitments.isEmpty
             ? Stack(
                 children: [
                   ListView(), // 讓下拉手勢在空清單也有效
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: _FilterBar(
+                        city: _city,
+                        dateFilter: _dateFilter,
+                        onCityChanged: (city) => setState(() => _city = city),
+                        onDateChanged: _selectDateFilter,
+                        dateRange: _customDateRange,
+                        onPickDateRange: _pickDateRange,
+                        onClearDateRange: () =>
+                            setState(() => _customDateRange = null),
+                      ),
+                    ),
+                  ),
                   _empty(),
                 ],
               )
-            : ListView.separated(
+            : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                itemCount: posts.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, i) => _PostCard(post: posts[i]),
+                children: [
+                  _FilterBar(
+                    city: _city,
+                    dateFilter: _dateFilter,
+                    onCityChanged: (city) => setState(() => _city = city),
+                    onDateChanged: _selectDateFilter,
+                    dateRange: _customDateRange,
+                    onPickDateRange: _pickDateRange,
+                    onClearDateRange: () =>
+                        setState(() => _customDateRange = null),
+                  ),
+                  const SizedBox(height: 18),
+                  if (posts.isEmpty) ...[const SizedBox(height: 72), _empty()],
+                  if (mine.isNotEmpty) ...[
+                    const _SectionTitle('我發起的招募'),
+                    const SizedBox(height: 10),
+                    for (final post in mine) ...[
+                      _PostCard(post: post),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                  if (others.isNotEmpty) ...[
+                    const _SectionTitle('其他人發起的招募'),
+                    const SizedBox(height: 10),
+                    for (final post in others) ...[
+                      _PostCard(post: post),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                ],
               ),
       ),
     );
@@ -73,6 +134,159 @@ class RecruitmentPage extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  bool _matchesFilters(RecruitmentPost post) {
+    if (_city != '全部縣市' && post.city != _city) return false;
+    final date = post.activityDate;
+    if (date == null) {
+      return _dateFilter == _DateFilter.all && _customDateRange == null;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(date.year, date.month, date.day);
+    final range = _customDateRange;
+    if (range != null) {
+      final start = DateTime(
+        range.start.year,
+        range.start.month,
+        range.start.day,
+      );
+      final end = DateTime(range.end.year, range.end.month, range.end.day);
+      return !target.isBefore(start) && !target.isAfter(end);
+    }
+    if (_dateFilter == _DateFilter.all) return true;
+    switch (_dateFilter) {
+      case _DateFilter.week:
+        return !target.isBefore(today) &&
+            target.isBefore(today.add(const Duration(days: 7)));
+      case _DateFilter.month:
+        return target.year == today.year && target.month == today.month;
+      case _DateFilter.all:
+        return true;
+    }
+  }
+
+  void _selectDateFilter(_DateFilter filter) {
+    setState(() {
+      _dateFilter = filter;
+      _customDateRange = null;
+    });
+  }
+
+  Future<void> _pickDateRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: _customDateRange,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 2, 12, 31),
+      helpText: '選擇活動日期區間',
+      saveText: '套用篩選',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _customDateRange = picked;
+      _dateFilter = _DateFilter.all;
+    });
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: const TextStyle(
+      fontSize: 17,
+      fontWeight: FontWeight.w800,
+      color: AppColors.textPrimary,
+    ),
+  );
+}
+
+class _FilterBar extends StatelessWidget {
+  const _FilterBar({
+    required this.city,
+    required this.dateFilter,
+    required this.onCityChanged,
+    required this.onDateChanged,
+    required this.dateRange,
+    required this.onPickDateRange,
+    required this.onClearDateRange,
+  });
+  final String city;
+  final _DateFilter dateFilter;
+  final ValueChanged<String> onCityChanged;
+  final ValueChanged<_DateFilter> onDateChanged;
+  final DateTimeRange? dateRange;
+  final VoidCallback onPickDateRange;
+  final VoidCallback onClearDateRange;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      DropdownButtonFormField<String>(
+        initialValue: city,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: '活動縣市',
+          prefixIcon: Icon(Icons.location_city_outlined),
+        ),
+        items: [
+          const DropdownMenuItem(value: '全部縣市', child: Text('全部縣市')),
+          for (final item in taiwanCities)
+            DropdownMenuItem(value: item, child: Text(item)),
+        ],
+        onChanged: (value) {
+          if (value != null) onCityChanged(value);
+        },
+      ),
+      const SizedBox(height: 12),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final filter in _DateFilter.values)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(_dateFilterLabel(filter)),
+                  selected: dateRange == null && dateFilter == filter,
+                  onSelected: (_) => onDateChanged(filter),
+                ),
+              ),
+            InputChip(
+              avatar: const Icon(Icons.date_range_outlined, size: 18),
+              label: Text(
+                dateRange == null
+                    ? _rangeLabel(null)
+                    : '✓ ${_rangeLabel(dateRange)}',
+              ),
+              selected: dateRange != null,
+              showCheckmark: false,
+              onPressed: onPickDateRange,
+              onDeleted: dateRange == null ? null : onClearDateRange,
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  static String _dateFilterLabel(_DateFilter filter) => switch (filter) {
+    _DateFilter.all => '全部日期',
+    _DateFilter.week => '本週',
+    _DateFilter.month => '本月',
+  };
+
+  static String _rangeLabel(DateTimeRange? range) {
+    if (range == null) return '自訂區間';
+    String format(DateTime value) => '${value.month}/${value.day}';
+    return '${format(range.start)} - ${format(range.end)}';
   }
 }
 
@@ -140,8 +354,15 @@ class _PostCard extends StatelessWidget {
                   icon: Icons.payments,
                   text: AppStrings.costLabel(post.cost),
                 ),
-                if (post.relatedActivity != null)
-                  _Tag(icon: Icons.place, text: post.relatedActivity!.city),
+                if (post.city.isNotEmpty)
+                  _Tag(icon: Icons.location_city_outlined, text: post.city),
+                if (post.activityPlace.isNotEmpty)
+                  _Tag(icon: Icons.place_outlined, text: post.activityPlace),
+                if (post.activityDate != null)
+                  _Tag(
+                    icon: Icons.calendar_today_outlined,
+                    text: AppDate.monthDayWeekTime(post.activityDate!),
+                  ),
               ],
             ),
 

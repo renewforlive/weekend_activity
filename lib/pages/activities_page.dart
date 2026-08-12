@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
@@ -6,9 +6,8 @@ import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
-import '../widgets/recruitment_editor.dart';
-import '../widgets/schedule_time_picker.dart';
 import 'travel_spot_detail_page.dart';
+import 'activity_detail_page.dart';
 import 'trails_list.dart';
 import 'campings_list.dart';
 
@@ -161,7 +160,10 @@ class _AttractionsListState extends State<_AttractionsList> {
       return const Center(child: CircularProgressIndicator());
     }
     if (state.spotsError != null && state.travelSpots.isEmpty) {
-      return _ErrorRetry(message: AppStrings.spotsError, onRetry: state.loadCitySpots);
+      return _ErrorRetry(
+        message: AppStrings.spotsError,
+        onRetry: state.loadCitySpots,
+      );
     }
     final spots = state.travelSpots;
     if (spots.isEmpty) {
@@ -212,7 +214,9 @@ class _SpotCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => TravelSpotDetailPage(spot: spot)),
+          MaterialPageRoute<void>(
+            builder: (_) => TravelSpotDetailPage(spot: spot),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,7 +235,10 @@ class _SpotCard extends StatelessWidget {
                   height: 160,
                   color: AppColors.soft,
                   alignment: Alignment.center,
-                  child: const Icon(Icons.broken_image_outlined, color: AppColors.textSecondary),
+                  child: const Icon(
+                    Icons.broken_image_outlined,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
             Padding(
@@ -242,8 +249,14 @@ class _SpotCard extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(spot.name,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                        child: Text(
+                          spot.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
                       ),
                       _MiniOpen(isOpen: spot.isOpen),
                     ],
@@ -251,31 +264,41 @@ class _SpotCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.place_outlined, size: 15, color: AppColors.textSecondary),
+                      const Icon(
+                        Icons.place_outlined,
+                        size: 15,
+                        color: AppColors.textSecondary,
+                      ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          [spot.distric, spot.address].where((s) => s.isNotEmpty).join(' · '),
+                          [
+                            spot.distric,
+                            spot.address,
+                          ].where((s) => s.isNotEmpty).join(' · '),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   if (spot.introduction.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Text(spot.introduction,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+                    Text(
+                      spot.introduction,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
                   ],
-
-
-
-
-
-
                 ],
               ),
             ),
@@ -294,9 +317,18 @@ class _MiniOpen extends StatelessWidget {
     final color = isOpen ? AppColors.primary : AppColors.danger;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-      child: Text(isOpen ? AppStrings.open : AppStrings.closed,
-          style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        isOpen ? AppStrings.open : AppStrings.closed,
+        style: TextStyle(
+          fontSize: 11,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -315,7 +347,14 @@ class _ErrorRetry extends StatelessWidget {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(message, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           ElevatedButton(onPressed: onRetry, child: const Text('重試')),
@@ -369,8 +408,13 @@ class _ExhibitionListState extends State<_ExhibitionList> {
     );
   }
 }
+
 class _CityDropdown extends StatelessWidget {
-  const _CityDropdown({required this.value, required this.cities, required this.onChanged});
+  const _CityDropdown({
+    required this.value,
+    required this.cities,
+    required this.onChanged,
+  });
   final String value;
   final List<String> cities;
   final ValueChanged<String> onChanged;
@@ -379,14 +423,21 @@ class _CityDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isExpanded: true,
           value: value,
           icon: const Icon(Icons.expand_more, color: AppColors.primary),
-          items: [for (final c in cities) DropdownMenuItem(value: c, child: Text(c))],
-          onChanged: (v) { if (v != null) onChanged(v); },
+          items: [
+            for (final c in cities) DropdownMenuItem(value: c, child: Text(c)),
+          ],
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
         ),
       ),
     );
@@ -400,72 +451,82 @@ class ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final scheduled = state.isScheduled(activity);
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(color: activity.category.color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                  child: Icon(activity.category.icon, color: activity.category.color),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(activity.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                      const SizedBox(height: 2),
-                      Text(AppStrings.categoryLabel(activity.category), style: TextStyle(fontSize: 12, color: activity.category.color, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-                _CostTag(cost: activity.cost),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _InfoRow(icon: Icons.event, text: AppDate.monthDayWeek(activity.date)),
-            const SizedBox(height: 4),
-            _InfoRow(icon: Icons.place_outlined, text: '${activity.city} · ${activity.venue}'),
-            const SizedBox(height: 10),
-            Text(activity.description, style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: scheduled ? null : () => showScheduleTimePicker(context, activity: activity),
-                    icon: Icon(scheduled ? Icons.check : Icons.add_task, size: 18),
-                    label: Text(scheduled ? AppStrings.scheduledAlready : AppStrings.addToSchedule),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: scheduled ? AppColors.soft : AppColors.primary,
-                      foregroundColor: scheduled ? AppColors.primaryDark : Colors.white,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => ActivityDetailPage(activity: activity),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: activity.category.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      activity.category.icon,
+                      color: activity.category.color,
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => showRecruitmentEditor(context, relatedActivity: activity),
-                    icon: const Icon(Icons.campaign_outlined, size: 18),
-                    label: Text(AppStrings.startRecruitment),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.accent,
-                      side: const BorderSide(color: AppColors.accent),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          activity.title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          AppStrings.categoryLabel(activity.category),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: activity.category.color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                  _CostTag(cost: activity.cost),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _InfoRow(
+                icon: Icons.event,
+                text: AppDate.monthDayWeek(activity.date),
+              ),
+              const SizedBox(height: 4),
+              _InfoRow(
+                icon: Icons.place_outlined,
+                text: '${activity.city} · ${activity.venue}',
+              ),
+              const SizedBox(height: 10),
+              Text(
+                activity.description,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.4,
                 ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -486,7 +547,11 @@ class _CostTag extends StatelessWidget {
       ),
       child: Text(
         AppStrings.costLabel(cost),
-        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: free ? AppColors.primaryDark : AppColors.accent),
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: free ? AppColors.primaryDark : AppColors.accent,
+        ),
       ),
     );
   }
@@ -502,7 +567,12 @@ class _InfoRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: AppColors.textSecondary),
         const SizedBox(width: 6),
-        Expanded(child: Text(text, style: TextStyle(fontSize: 13, color: AppColors.textSecondary))),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+        ),
       ],
     );
   }
@@ -517,9 +587,17 @@ class _EmptyHint extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.event_busy, size: 56, color: AppColors.textSecondary),
+          const Icon(
+            Icons.event_busy,
+            size: 56,
+            color: AppColors.textSecondary,
+          ),
           const SizedBox(height: 12),
-          Text(text, textAlign: TextAlign.center, style: TextStyle(color: AppColors.textSecondary, height: 1.5)),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+          ),
         ],
       ),
     );
