@@ -1,4 +1,4 @@
-package com.example.weekend_activity
+package com.my.weekendplay
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

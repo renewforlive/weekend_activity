@@ -71,6 +71,14 @@ class AppState extends ChangeNotifier {
   /// 目前帳號的 email(訪客模式為 null)。
   String? get userEmail => AuthService.instance.email;
 
+  /// Fetches the profile displayed to other members of a recruitment.
+  Future<PublicProfile?> fetchPublicProfile(String userId) =>
+      _profileRepo.fetchPublicProfile(userId);
+
+  /// Recruitment memberships visible in the current activity feed.
+  int participationCountFor(String userId) =>
+      _recruitments.where((post) => post.isJoinedBy(userId)).length;
+
   bool _syncing = false;
   String? _syncError;
   bool get isSyncing => _syncing;
@@ -687,6 +695,7 @@ class AppState extends ChangeNotifier {
           source: hosted ? BookingSource.hosted : BookingSource.joined,
           city: r.relatedActivity?.city,
           cost: r.cost,
+          recruitmentId: r.id,
         ),
       );
     }

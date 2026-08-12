@@ -172,10 +172,51 @@ class ProfileRepository {
     final uid = SupabaseConfig.userId;
     if (uid == null) return [];
 
+    return _fetchPhotosFor(uid);
+  }
+
+  /// Loads the public information shown when a recruitment member is selected.
+  Future<PublicProfile?> fetchPublicProfile(String userId) async {
+    final row = await SupabaseConfig.client
+        .from(_profiles)
+        .select('id, nickname, bio, avatar_color, avatar_path')
+        .eq('id', userId)
+        .maybeSingle();
+    if (row == null) return null;
+
+    final avatarPath = (row['avatar_path'] as String?)?.trim();
+    final rawColor = (row['avatar_color'] as num?)?.toInt();
+    final avatarColor =
+        rawColor != null && UserProfile.isValidAvatarColor(rawColor)
+        ? rawColor
+        : UserProfile.defaultAvatarColor;
+    final nickname = (row['nickname'] as String?)?.trim();
+    List<ProfilePhoto> photos = const [];
+    try {
+      photos = await _fetchPhotosFor(userId);
+    } catch (_) {
+      // A profile remains viewable if its photo-wall policy is more restrictive.
+    }
+
+    return PublicProfile(
+      userId: userId,
+      nickname: nickname == null || nickname.isEmpty ? '使用者' : nickname,
+      bio: (row['bio'] as String?) ?? '',
+      avatarColorValue: avatarColor,
+      avatarUrl: avatarPath == null || avatarPath.isEmpty
+          ? null
+          : SupabaseConfig.client.storage
+                .from(SupabaseConfig.photoBucket)
+                .getPublicUrl(avatarPath),
+      photos: photos,
+    );
+  }
+
+  Future<List<ProfilePhoto>> _fetchPhotosFor(String userId) async {
     final rows = await SupabaseConfig.client
         .from(_photos)
         .select()
-        .eq('user_id', uid)
+        .eq('user_id', userId)
         .order('created_at');
 
     final list = <ProfilePhoto>[];

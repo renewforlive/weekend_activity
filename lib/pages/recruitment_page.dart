@@ -24,11 +24,16 @@ class RecruitmentPage extends StatelessWidget {
     final state = context.watch<AppState>();
     final posts = state.recruitments;
     return Scaffold(
-      appBar: AppBar(title: Text(AppStrings.recruitmentTitle)),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _startRecruitment(context),
-        icon: const Icon(Icons.campaign),
-        label: Text(AppStrings.startRecruitment),
+      appBar: AppBar(
+        title: Text(AppStrings.recruitmentTitle),
+        actions: [
+          IconButton(
+            tooltip: AppStrings.startRecruitment,
+            onPressed: () => _startRecruitment(context),
+            icon: const Icon(Icons.add_circle_outline),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: state.loadRemoteData,
@@ -40,7 +45,7 @@ class RecruitmentPage extends StatelessWidget {
                 ],
               )
             : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 itemCount: posts.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, i) => _PostCard(post: posts[i]),
@@ -54,10 +59,17 @@ class RecruitmentPage extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.forum_outlined, size: 56, color: AppColors.textSecondary),
+          const Icon(
+            Icons.forum_outlined,
+            size: 56,
+            color: AppColors.textSecondary,
+          ),
           const SizedBox(height: 12),
-          Text(AppStrings.recruitmentEmpty,
-              textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textSecondary, height: 1.5)),
+          Text(
+            AppStrings.recruitmentEmpty,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+          ),
         ],
       ),
     );
@@ -91,19 +103,43 @@ class _PostCard extends StatelessWidget {
           children: [
             _Header(post: post, hosted: hosted),
             const SizedBox(height: 12),
-            Text(post.title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(
+              post.title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
             const SizedBox(height: 6),
-            Text(post.content,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5)),
+            Text(
+              post.content,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
-                _Tag(icon: Icons.group, text: AppStrings.headcountLabel(post.joinedCount, post.headcount)),
-                _Tag(icon: Icons.wc, text: AppStrings.genderLabel(post.genderPref)),
-                _Tag(icon: Icons.payments, text: AppStrings.costLabel(post.cost)),
+                _Tag(
+                  icon: Icons.group,
+                  text: AppStrings.headcountLabel(
+                    post.joinedCount,
+                    post.headcount,
+                  ),
+                ),
+                _Tag(
+                  icon: Icons.wc,
+                  text: AppStrings.genderLabel(post.genderPref),
+                ),
+                _Tag(
+                  icon: Icons.payments,
+                  text: AppStrings.costLabel(post.cost),
+                ),
                 if (post.relatedActivity != null)
                   _Tag(icon: Icons.place, text: post.relatedActivity!.city),
               ],
@@ -144,7 +180,10 @@ class _Header extends StatelessWidget {
           backgroundColor: AppColors.soft,
           child: Text(
             post.author.characters.first,
-            style: const TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -154,16 +193,30 @@ class _Header extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(post.author,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  Text(
+                    post.author,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                   if (hosted) ...[
                     const SizedBox(width: 6),
-                    _Badge(text: AppStrings.hostedByMe, color: AppColors.accent),
+                    _Badge(
+                      text: AppStrings.hostedByMe,
+                      color: AppColors.accent,
+                    ),
                   ],
                 ],
               ),
-              Text(_ago(post.createdAt),
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              Text(
+                _ago(post.createdAt),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
             ],
           ),
         ),
@@ -199,19 +252,41 @@ class _MeetingInfo extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.lock_open, size: 15, color: AppColors.primaryDark),
+              const Icon(
+                Icons.lock_open,
+                size: 15,
+                color: AppColors.primaryDark,
+              ),
               const SizedBox(width: 6),
-              Text(AppStrings.meetingInfoTitle,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+              Text(
+                AppStrings.meetingInfoTitle,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryDark,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           if (post.meetingPoint.isNotEmpty)
-            _row(Icons.place_outlined, AppStrings.meetingPointField, post.meetingPoint),
+            _row(
+              Icons.place_outlined,
+              AppStrings.meetingPointField,
+              post.meetingPoint,
+            ),
           if (post.meetingTime != null)
-            _row(Icons.schedule, AppStrings.meetingTimeField, AppDate.monthDayWeekTime(post.meetingTime!)),
+            _row(
+              Icons.schedule,
+              AppStrings.meetingTimeField,
+              AppDate.monthDayWeekTime(post.meetingTime!),
+            ),
           if (post.contactInfo.isNotEmpty)
-            _row(Icons.contact_phone_outlined, AppStrings.contactField, post.contactInfo),
+            _row(
+              Icons.contact_phone_outlined,
+              AppStrings.contactField,
+              post.contactInfo,
+            ),
         ],
       ),
     );
@@ -227,11 +302,23 @@ class _MeetingInfo extends StatelessWidget {
           const SizedBox(width: 8),
           SizedBox(
             width: 56,
-            child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
           Expanded(
-            child: Text(value,
-                style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -257,12 +344,17 @@ class _HostControls extends StatelessWidget {
                 onPressed: () => showRecruitmentEditor(context, editing: post),
                 icon: const Icon(Icons.edit_outlined, size: 18),
                 label: Text(AppStrings.editRecruitment),
-                style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryDark),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryDark,
+                ),
               ),
             ),
             if (pending.isNotEmpty) ...[
               const SizedBox(width: 10),
-              _Badge(text: AppStrings.pendingCount(pending.length), color: AppColors.accent),
+              _Badge(
+                text: AppStrings.pendingCount(pending.length),
+                color: AppColors.accent,
+              ),
             ],
           ],
         ),
@@ -287,14 +379,25 @@ class _MemberList extends StatelessWidget {
     return ExpansionTile(
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(bottom: 8),
-      title: Text(AppStrings.memberListTitle,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+      title: Text(
+        AppStrings.memberListTitle,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textPrimary,
+        ),
+      ),
       children: [
         if (pending.isEmpty && approved.isEmpty)
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(AppStrings.noMembersYet,
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            child: Text(
+              AppStrings.noMembersYet,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
         if (pending.isNotEmpty) ...[
           _sectionLabel(AppStrings.pendingSection),
@@ -318,8 +421,14 @@ class _MemberList extends StatelessWidget {
   Widget _sectionLabel(String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: Text(text,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textSecondary)),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: AppColors.textSecondary,
+        ),
+      ),
     );
   }
 }
@@ -350,7 +459,11 @@ class _MemberRow extends StatelessWidget {
             backgroundColor: AppColors.soft,
             child: Text(
               member.nickname.characters.first,
-              style: const TextStyle(fontSize: 12, color: AppColors.primaryDark, fontWeight: FontWeight.w700),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -358,9 +471,15 @@ class _MemberRow extends StatelessWidget {
             child: Row(
               children: [
                 Flexible(
-                  child: Text(member.nickname,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                  child: Text(
+                    member.nickname,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
                 if (isHostRow) ...[
                   const SizedBox(width: 6),
@@ -368,8 +487,13 @@ class _MemberRow extends StatelessWidget {
                 ],
                 if (member.guestCount > 0) ...[
                   const SizedBox(width: 6),
-                  Text(AppStrings.withGuests(member.guestCount),
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  Text(
+                    AppStrings.withGuests(member.guestCount),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -411,17 +535,31 @@ class _JoinControls extends StatelessWidget {
         children: [
           const Icon(Icons.check_circle, size: 20, color: AppColors.primary),
           const SizedBox(width: 6),
-          Text(AppStrings.approvedJoined,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primaryDark)),
+          Text(
+            AppStrings.approvedJoined,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primaryDark,
+            ),
+          ),
           if (m.guestCount > 0) ...[
             const SizedBox(width: 6),
-            Text(AppStrings.withGuests(m.guestCount),
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text(
+              AppStrings.withGuests(m.guestCount),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ],
           const Spacer(),
           TextButton(
             onPressed: () => _confirmLeave(context, state),
-            child: Text(AppStrings.leaveGroup, style: const TextStyle(color: AppColors.danger)),
+            child: Text(
+              AppStrings.leaveGroup,
+              style: const TextStyle(color: AppColors.danger),
+            ),
           ),
         ],
       );
@@ -432,16 +570,29 @@ class _JoinControls extends StatelessWidget {
       return Row(
         children: [
           const SizedBox(
-            width: 16, height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: AppColors.accent,
+            ),
           ),
           const SizedBox(width: 8),
-          Text(AppStrings.pendingReview,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.accent)),
+          Text(
+            AppStrings.pendingReview,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AppColors.accent,
+            ),
+          ),
           const Spacer(),
           TextButton(
             onPressed: () => state.leaveRecruitment(post),
-            child: Text(AppStrings.cancelRequest, style: const TextStyle(color: AppColors.textSecondary)),
+            child: Text(
+              AppStrings.cancelRequest,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
           ),
         ],
       );
@@ -456,11 +607,21 @@ class _JoinControls extends StatelessWidget {
         if (post.hasMeetingInfo) ...[
           Row(
             children: [
-              const Icon(Icons.lock_outline, size: 14, color: AppColors.textSecondary),
+              const Icon(
+                Icons.lock_outline,
+                size: 14,
+                color: AppColors.textSecondary,
+              ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(AppStrings.meetingInfoLocked,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.4)),
+                child: Text(
+                  AppStrings.meetingInfoLocked,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
               ),
             ],
           ),
@@ -495,7 +656,9 @@ class _JoinControls extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final ok = await state.requestJoin(post, guestCount: guestCount);
     if (ok) {
-      messenger.showSnackBar(SnackBar(content: Text(AppStrings.requestSentSnack)));
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppStrings.requestSentSnack)),
+      );
     }
   }
 
@@ -508,7 +671,10 @@ class _JoinControls extends StatelessWidget {
         title: Text(AppStrings.leaveGroup),
         content: Text(post.title),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppStrings.cancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(AppStrings.cancel),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () => Navigator.pop(ctx, true),
@@ -576,16 +742,31 @@ class _BringPeopleSheetState extends State<_BringPeopleSheet> {
           children: [
             Center(
               child: Container(
-                width: 44, height: 4,
-                decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(2)),
+                width: 44,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.soft,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
             const SizedBox(height: 16),
-            Text(AppStrings.bringPeopleTitle,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+            Text(
+              AppStrings.bringPeopleTitle,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
             const SizedBox(height: 4),
-            Text(AppStrings.remainingSlots(widget.remaining),
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            Text(
+              AppStrings.remainingSlots(widget.remaining),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -611,7 +792,9 @@ class _BringPeopleSheetState extends State<_BringPeopleSheet> {
                     label: Text(AppStrings.bringGuests),
                     selected: _bringing,
                     // 沒有多餘名額時無法帶人。
-                    onSelected: _maxGuests < 1 ? null : (_) => setState(() => _bringing = true),
+                    onSelected: _maxGuests < 1
+                        ? null
+                        : (_) => setState(() => _bringing = true),
                     selectedColor: AppColors.primary,
                     labelStyle: TextStyle(
                       color: _bringing ? Colors.white : AppColors.primaryDark,
@@ -664,13 +847,23 @@ class _Tag extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: AppColors.soft, borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(
+        color: AppColors.soft,
+        borderRadius: BorderRadius.circular(10),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: AppColors.primaryDark),
           const SizedBox(width: 4),
-          Text(text, style: const TextStyle(fontSize: 12, color: AppColors.primaryDark, fontWeight: FontWeight.w600)),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.primaryDark,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -691,8 +884,14 @@ class _Badge extends StatelessWidget {
         color: color.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(text,
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
     );
   }
 }

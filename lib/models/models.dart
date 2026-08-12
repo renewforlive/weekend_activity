@@ -291,6 +291,7 @@ class Booking {
     required this.source,
     this.city,
     this.cost = 0,
+    this.recruitmentId,
   });
 
   final String id;
@@ -299,6 +300,9 @@ class Booking {
   final BookingSource source;
   final String? city;
   final int cost;
+
+  /// The recruitment this booking was created from. Null for regular activity bookings.
+  final String? recruitmentId;
 }
 
 /// 照片來源類型。
@@ -381,6 +385,25 @@ class UserProfile {
 
   /// 是否已設定頭像圖片。
   bool get hasAvatar => avatarUrl != null && avatarUrl!.isNotEmpty;
+}
+
+/// Profile information that can be viewed by other recruitment members.
+class PublicProfile {
+  const PublicProfile({
+    required this.userId,
+    required this.nickname,
+    required this.bio,
+    required this.avatarColorValue,
+    this.avatarUrl,
+    this.photos = const <ProfilePhoto>[],
+  });
+
+  final String userId;
+  final String nickname;
+  final String bio;
+  final int avatarColorValue;
+  final String? avatarUrl;
+  final List<ProfilePhoto> photos;
 }
 
 /// 台北旅遊景點(來自 travel.taipei 開放 API)。與展覽類活動分開。
