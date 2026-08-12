@@ -5,6 +5,7 @@ import '../data/app_state.dart';
 import '../l10n/auth_strings.dart';
 import '../pages/sign_in_page.dart';
 import '../services/auth_service.dart';
+import '../services/biometric_lock_service.dart';
 import '../theme/app_theme.dart';
 
 /// 個人頁的帳號區塊。
@@ -89,30 +90,7 @@ class AccountSection extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              if (signedIn) ...[
-                const Divider(height: 1, color: AppColors.soft),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => _confirmSignOut(context),
-                  icon: const Icon(Icons.logout_outlined, size: 19),
-                  label: Text(AuthStrings.signOutAction),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primaryDark,
-                    side: const BorderSide(color: AppColors.primary),
-                    minimumSize: const Size.fromHeight(44),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                TextButton.icon(
-                  onPressed: () => _confirmDeleteAccount(context),
-                  icon: const Icon(Icons.delete_forever_outlined, size: 18),
-                  label: Text(AuthStrings.deleteAccountAction),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.danger,
-                    minimumSize: const Size.fromHeight(42),
-                  ),
-                ),
-              ] else
+              if (!signedIn)
                 ElevatedButton.icon(
                   onPressed: () => _goSignIn(context),
                   icon: const Icon(Icons.login, size: 19),
@@ -122,6 +100,95 @@ class AccountSection extends StatelessWidget {
                   ),
                 ),
             ],
+          ),
+        ),
+        if (signedIn) ...[const SizedBox(height: 20), _securityCard(context)],
+      ],
+    );
+  }
+
+  Widget _securityCard(BuildContext context) {
+    final service = BiometricLockService.instance;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          AuthStrings.securitySection,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.soft),
+          ),
+          child: FutureBuilder<bool>(
+            future: service.isEnabled,
+            builder: (context, snapshot) {
+              var enabled = snapshot.data ?? false;
+              return StatefulBuilder(
+                builder: (context, setCardState) => Column(
+                  children: [
+                    SwitchListTile.adaptive(
+                      value: enabled,
+                      secondary: const Icon(
+                        Icons.face_outlined,
+                        color: AppColors.primary,
+                      ),
+                      title: Text(AuthStrings.biometricLock),
+                      subtitle: Text(
+                        AuthStrings.biometricLockHint,
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      onChanged: (value) async {
+                        if (value && !await service.canAuthenticate()) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  AuthStrings.biometricNotAvailable,
+                                ),
+                              ),
+                            );
+                          }
+                          return;
+                        }
+                        await service.setEnabled(value);
+                        setCardState(() => enabled = value);
+                      },
+                    ),
+                    const Divider(height: 1, color: AppColors.soft),
+                    ListTile(
+                      leading: const Icon(Icons.logout_outlined),
+                      title: Text(AuthStrings.signOutAction),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _confirmSignOut(context),
+                    ),
+                    const Divider(height: 1, color: AppColors.soft),
+                    ListTile(
+                      leading: const Icon(
+                        Icons.delete_forever_outlined,
+                        color: AppColors.danger,
+                      ),
+                      title: Text(
+                        AuthStrings.deleteAccountAction,
+                        style: const TextStyle(color: AppColors.danger),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.danger,
+                      ),
+                      onTap: () => _confirmDeleteAccount(context),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -194,6 +261,8 @@ class AccountSection extends StatelessWidget {
     if (!context.mounted) return;
 
     if (result.isSuccess) {
+      await BiometricLockService.instance.setRememberedEmail(null);
+      await BiometricLockService.instance.setEnabled(false);
       state.clearAccountData();
       await state.loadRemoteData();
       if (!context.mounted) return;

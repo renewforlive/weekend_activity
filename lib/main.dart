@@ -10,15 +10,12 @@ import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Supabase 初始化與身分準備。失敗時 App 仍可啟動(景點/展覽等唯讀功能不受影響)。
   try {
     await SupabaseConfig.init();
     await SupabaseConfig.ensureSignedIn();
   } catch (e) {
-    debugPrint('Supabase 初始化失敗: $e');
+    debugPrint('Supabase initialization failed: $e');
   }
-
   await NotificationService.instance.init();
   await NotificationService.instance.requestPermissions();
   runApp(const WeekendActivityApp());
@@ -40,5 +37,3 @@ class WeekendActivityApp extends StatelessWidget {
     );
   }
 }
-
-

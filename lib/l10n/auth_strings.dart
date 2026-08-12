@@ -24,19 +24,38 @@ class AuthStrings {
   static String get signUpAction => _pick('建立帳號', 'Create account');
   static String get sendResetAction => _pick('寄送重設信', 'Send reset link');
   static String get signOutAction => _pick('登出', 'Sign out');
+  static String get securitySection => _pick('安全性', 'Security');
+  static String get biometricLock => _pick('生物辨識解鎖', 'Biometric unlock');
+  static String get biometricLockHint => _pick(
+    '開啟 App 或回到前景時需先完成臉部／指紋辨識。',
+    'Require Face ID, fingerprint, or other biometrics when opening the app.',
+  );
+  static String get biometricNotAvailable => _pick(
+    '此裝置尚未設定可用的生物辨識。',
+    'No biometric authentication is available on this device.',
+  );
+  static String get rememberAccount => _pick('記住帳號', 'Remember account');
+  static String get biometricSignIn =>
+      _pick('使用臉部／生物辨識登入', 'Sign in with biometrics');
+  static String get biometricUnavailable => _pick(
+    '此裝置無法使用生物辨識登入，請使用密碼登入。',
+    'Biometric sign-in is unavailable. Please use your password.',
+  );
   static String get emailConfirmationSent => _pick(
-        '驗證信已寄出，請完成 Email 驗證後再登入。',
-        'Confirmation email sent. Verify your email before signing in.',
-      );
+    '驗證信已寄出，請完成 Email 驗證後再登入。',
+    'Confirmation email sent. Verify your email before signing in.',
+  );
   static String get deleteAccountAction => _pick('註銷帳號', 'Delete account');
   static String get deleteAccountConfirm => _pick(
-        '註銷後將永久刪除帳號、個人資料、頭像、照片、行程與你建立的招募，且無法復原。確定要繼續嗎？',
-        'This permanently deletes your account, profile, avatar, photos, schedules, and groups you created. This cannot be undone.',
-      );
+    '註銷後將永久刪除帳號、個人資料、頭像、照片、行程與你建立的招募，且無法復原。確定要繼續嗎？',
+    'This permanently deletes your account, profile, avatar, photos, schedules, and groups you created. This cannot be undone.',
+  );
   static String get deleteAccountSuccess =>
       _pick('帳號已註銷。', 'Your account has been deleted.');
-  static String get deleteAccountFailed =>
-      _pick('註銷帳號失敗，請稍後再試。', 'Could not delete your account. Please try again.');
+  static String get deleteAccountFailed => _pick(
+    '註銷帳號失敗，請稍後再試。',
+    'Could not delete your account. Please try again.',
+  );
 
   // 導引文字
   static String get noAccountYet => _pick('還沒有帳號?', "Don't have an account?");
@@ -50,21 +69,22 @@ class AuthStrings {
   static String get signUpHint =>
       _pick('目前排好的行程與照片會一起保留', 'Your saved plans and photos will be kept');
   static String get forgotHint => _pick(
-        '輸入註冊時使用的 Email,我們會寄送重設密碼的連結',
-        "Enter your email and we'll send a reset link",
-      );
+    '輸入註冊時使用的 Email,我們會寄送重設密碼的連結',
+    "Enter your email and we'll send a reset link",
+  );
 
   // 驗證訊息
   static String get emailRequired => _pick('請輸入 Email', 'Email is required');
-  static String get emailInvalid => _pick('Email 格式不正確', 'Invalid email format');
+  static String get emailInvalid =>
+      _pick('Email 格式不正確', 'Invalid email format');
   static String get passwordRequired => _pick('請輸入密碼', 'Password is required');
   static String get passwordTooShort =>
       _pick('密碼至少需要 6 個字元', 'Password must be at least 6 characters');
-  static String get passwordMismatch => _pick('兩次輸入的密碼不一致', 'Passwords do not match');
+  static String get passwordMismatch =>
+      _pick('兩次輸入的密碼不一致', 'Passwords do not match');
 
   // 結果訊息
-  static String get signUpSuccess =>
-      _pick('註冊成功', 'Signed up successfully');
+  static String get signUpSuccess => _pick('註冊成功', 'Signed up successfully');
   static String get resetSent =>
       _pick('重設密碼的信件已寄出,請查看信箱', 'Reset link sent, please check your inbox');
 
@@ -79,7 +99,8 @@ class AuthStrings {
   static String get guestMode => _pick('訪客模式', 'Guest');
   static String get guestHint =>
       _pick('登入後可發起與加入招募', 'Sign in to host or join groups');
-  static String get signOutConfirm =>
-      _pick('登出後將回到訪客模式,已排的行程會保留在這個裝置上。', 
-            'You will return to guest mode. Saved plans stay on this device.');
+  static String get signOutConfirm => _pick(
+    '登出後將回到訪客模式,已排的行程會保留在這個裝置上。',
+    'You will return to guest mode. Saved plans stay on this device.',
+  );
 }

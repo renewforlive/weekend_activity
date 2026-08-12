@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'secure_session_storage.dart';
+
 /// Supabase 連線設定與初始化。
 ///
 /// publishable key 可以放在客戶端(設計如此),安全性依賴資料庫的 RLS 政策。
@@ -27,6 +29,9 @@ class SupabaseConfig {
     await Supabase.initialize(
       url: url,
       publishableKey: publishableKey,
+      authOptions: FlutterAuthClientOptions(
+        localStorage: SecureSessionStorage(),
+      ),
     );
   }
 
