@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'data/app_state.dart';
-import 'l10n/app_strings.dart';
 import 'pages/home_page.dart';
+import 'pages/environment_setup_page.dart';
+import 'services/app_environment.dart';
 import 'services/notification_service.dart';
 import 'services/supabase_config.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (!SupabaseConfig.isConfigured) {
+    runApp(const EnvironmentSetupPage());
+    return;
+  }
   try {
     await SupabaseConfig.init();
     await SupabaseConfig.ensureSignedIn();
@@ -29,7 +34,7 @@ class WeekendActivityApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AppState(),
       child: MaterialApp(
-        title: AppStrings.appTitle,
+        title: AppEnvironmentConfig.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         home: const HomePage(),

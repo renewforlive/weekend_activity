@@ -28,6 +28,24 @@ android {
         multiDexEnabled = true
     }
 
+    buildFeatures {
+        resValues = true
+    }
+
+    flavorDimensions += "environment"
+    productFlavors {
+        create("prod") {
+            dimension = "environment"
+            resValue("string", "app_name", "周末遊")
+        }
+        create("dev") {
+            dimension = "environment"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "周末遊 測試版")
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
