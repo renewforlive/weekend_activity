@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../data/app_state.dart';
 import '../l10n/app_strings.dart';
 import '../models/models.dart';
+import '../services/local_file.dart';
 import '../theme/app_theme.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/account_section.dart';
@@ -577,7 +576,7 @@ class _PhotoGrid extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             child: photo.isRemote
                 ? Image.network(photo.value, fit: BoxFit.contain)
-                : Image.file(File(photo.value), fit: BoxFit.contain),
+                : _localImage(photo.value, fit: BoxFit.contain),
           ),
         ),
       ),
@@ -618,11 +617,7 @@ class _PhotoTile extends StatelessWidget {
       return Stack(
         fit: StackFit.expand,
         children: [
-          Image.file(
-            File(photo.value),
-            fit: BoxFit.cover,
-            errorBuilder: (context, _, _) => _broken,
-          ),
+          _localImage(photo.value, fit: BoxFit.cover),
           Container(
             color: Colors.black26,
             alignment: Alignment.center,
@@ -644,4 +639,16 @@ class _PhotoTile extends StatelessWidget {
       child: Text(photo.value, style: const TextStyle(fontSize: 30)),
     );
   }
+}
+
+Widget _localImage(String path, {required BoxFit fit}) {
+  final image = localFileImage(path);
+  if (image == null) {
+    return Container(
+      color: AppColors.soft,
+      alignment: Alignment.center,
+      child: const Icon(Icons.broken_image_outlined),
+    );
+  }
+  return Image(image: image, fit: fit);
 }

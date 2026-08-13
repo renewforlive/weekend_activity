@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:path/path.dart' as p;
 
 import '../models/models.dart';
+import 'local_file.dart';
 import 'supabase_config.dart';
 
 /// 個人資料、頭像與照片的遠端存取。
@@ -107,8 +106,8 @@ class ProfileRepository {
     final uid = SupabaseConfig.userId;
     if (uid == null) return null;
 
-    final file = File(localPath);
-    if (!await file.exists()) return null;
+    final bytes = await localFileBytes(localPath);
+    if (bytes == null) return null;
 
     final ext = p.extension(localPath).isNotEmpty
         ? p.extension(localPath)
@@ -119,7 +118,7 @@ class ProfileRepository {
 
     await SupabaseConfig.client.storage
         .from(SupabaseConfig.photoBucket)
-        .upload(storagePath, file);
+        .uploadBinary(storagePath, bytes);
 
     // 列已由 fetchOrCreateProfile 保證存在,用 update 只改這個欄位。
     await SupabaseConfig.client
@@ -242,8 +241,8 @@ class ProfileRepository {
     final uid = SupabaseConfig.userId;
     if (uid == null) return null;
 
-    final file = File(localPath);
-    if (!await file.exists()) return null;
+    final bytes = await localFileBytes(localPath);
+    if (bytes == null) return null;
 
     // 路徑格式 {uid}/{timestamp}{ext},Storage 政策以第一層資料夾比對身分。
     final ext = p.extension(localPath).isNotEmpty
@@ -253,7 +252,7 @@ class ProfileRepository {
 
     await SupabaseConfig.client.storage
         .from(SupabaseConfig.photoBucket)
-        .upload(storagePath, file);
+        .uploadBinary(storagePath, bytes);
 
     final inserted = await SupabaseConfig.client
         .from(_photos)

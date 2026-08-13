@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../services/local_file.dart';
 import '../theme/app_theme.dart';
 
 /// 個人頁頭像。有設定圖片就顯示照片,否則以色塊 + 暱稱首字代替。
@@ -71,8 +70,10 @@ class ProfileAvatar extends StatelessWidget {
     final url = profile.avatarUrl!;
     // 上傳中的樂觀更新會先放本機路徑,此時用 Image.file 顯示。
     if (!url.startsWith('http')) {
-      return Image.file(
-        File(url),
+      final image = localFileImage(url);
+      if (image == null) return _fallback();
+      return Image(
+        image: image,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => _fallback(),
       );

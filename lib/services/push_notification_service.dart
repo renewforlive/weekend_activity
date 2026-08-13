@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -19,6 +17,9 @@ class PushNotificationService {
 
   Future<void> initialize() async {
     if (_ready) return;
+    // Web hosting is used as a second test client. Browser FCM needs a web
+    // Firebase config and service worker, so it is deliberately skipped here.
+    if (kIsWeb) return;
     try {
       await Firebase.initializeApp();
       final messaging = FirebaseMessaging.instance;
@@ -33,7 +34,9 @@ class PushNotificationService {
           body: notification.body ?? '',
         );
       });
-      SupabaseConfig.client.auth.onAuthStateChange.listen((_) => _saveCurrentToken());
+      SupabaseConfig.client.auth.onAuthStateChange.listen(
+        (_) => _saveCurrentToken(),
+      );
       _ready = true;
     } catch (e) {
       // Push delivery should never prevent the app from starting.
@@ -50,13 +53,17 @@ class PushNotificationService {
     final userId = SupabaseConfig.userId;
     if (userId == null) return;
     try {
-      await SupabaseConfig.client.rpc(
-        'register_device_token',
-        params: {
-          'p_token': token,
-          'p_platform': Platform.isIOS ? 'ios' : 'android',
-        },
-      );
+      // The table policy permits a signed-in user to register only their own
+      // token. A direct upsert also avoids relying on PostgREST's function
+      // schema cache immediately after a database migration.
+      await SupabaseConfig.client.from('device_tokens').upsert({
+        'token': token,
+        'user_id': userId,
+        'platform': defaultTargetPlatform == TargetPlatform.iOS
+            ? 'ios'
+            : 'android',
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
     } catch (e) {
       debugPrint('Push token registration failed: $e');
     }
