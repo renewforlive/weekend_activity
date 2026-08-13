@@ -272,6 +272,10 @@ class RecruitmentRepository {
       );
       switch (result) {
         case 'ok':
+          await _sendRecruitmentNotification(
+            type: 'join_request',
+            recruitmentId: recruitmentId,
+          );
           return JoinResult.ok;
         case 'full':
           return JoinResult.full;
@@ -302,9 +306,39 @@ class RecruitmentRepository {
           'p_status': status.name,
         },
       );
+      if (result == 'ok') {
+        await _sendRecruitmentNotification(
+          type: 'member_status',
+          recruitmentId: recruitmentId,
+          memberId: userId,
+          status: status.name,
+        );
+      }
       return _hostResultFrom(result);
     } catch (_) {
       return HostActionResult.error;
+    }
+  }
+
+  Future<void> _sendRecruitmentNotification({
+    required String type,
+    required String recruitmentId,
+    String? memberId,
+    String? status,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'type': type,
+        'recruitmentId': recruitmentId,
+      };
+      if (memberId != null) payload['memberId'] = memberId;
+      if (status != null) payload['status'] = status;
+      await SupabaseConfig.client.functions.invoke(
+        'recruitment-notifications',
+        body: payload,
+      );
+    } catch (_) {
+      // The action already succeeded; a transient push failure must not undo it.
     }
   }
 

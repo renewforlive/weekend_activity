@@ -85,4 +85,32 @@ class NotificationService {
       debugPrint('cancel notification failed: $e');
     }
   }
+
+  /// Shows a remote push notification while the application is in foreground.
+  Future<void> showIncomingNotification({
+    required String title,
+    required String body,
+  }) async {
+    if (!_ready) return;
+    try {
+      const details = NotificationDetails(
+        android: AndroidNotificationDetails(
+          'recruitment_updates',
+          '招募通知',
+          channelDescription: '加入申請與審核結果通知',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+        iOS: DarwinNotificationDetails(),
+      );
+      await _plugin.show(
+        DateTime.now().millisecondsSinceEpoch.remainder(1 << 31),
+        title,
+        body,
+        details,
+      );
+    } catch (e) {
+      debugPrint('showIncomingNotification failed: $e');
+    }
+  }
 }

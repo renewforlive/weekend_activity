@@ -61,11 +61,19 @@ create table if not exists public.schedules (
   unique (user_id, activity_ref)
 );
 
+create table if not exists public.device_tokens (
+  token text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  platform text not null check (platform in ('android', 'ios')),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.profiles enable row level security;
 alter table public.profile_photos enable row level security;
 alter table public.recruitments enable row level security;
 alter table public.recruitment_members enable row level security;
 alter table public.schedules enable row level security;
+alter table public.device_tokens enable row level security;
 
 drop policy if exists "profiles readable" on public.profiles;
 drop policy if exists "profiles own write" on public.profiles;
@@ -89,6 +97,23 @@ create policy "members own write" on public.recruitment_members for all to authe
 
 drop policy if exists "schedules own" on public.schedules;
 create policy "schedules own" on public.schedules for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "device tokens own select" on public.device_tokens;
+drop policy if exists "device tokens own write" on public.device_tokens;
+create policy "device tokens own select" on public.device_tokens for select to authenticated using (user_id = auth.uid());
+create policy "device tokens own write" on public.device_tokens for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create or replace function public.register_device_token(p_token text, p_platform text)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := auth.uid();
+begin
+  if v_uid is null then raise exception 'not_authenticated'; end if;
+  if p_platform not in ('android', 'ios') then raise exception 'invalid_platform'; end if;
+  delete from public.device_tokens where token = p_token;
+  insert into public.device_tokens (token, user_id, platform, updated_at)
+  values (p_token, v_uid, p_platform, now());
+end;
+$$;
 
 insert into storage.buckets (id, name, public)
 values ('profile-photos', 'profile-photos', true)

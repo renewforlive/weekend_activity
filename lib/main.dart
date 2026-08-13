@@ -6,6 +6,7 @@ import 'pages/home_page.dart';
 import 'pages/environment_setup_page.dart';
 import 'services/app_environment.dart';
 import 'services/notification_service.dart';
+import 'services/push_notification_service.dart';
 import 'services/supabase_config.dart';
 import 'theme/app_theme.dart';
 
@@ -23,6 +24,7 @@ void main() async {
   }
   await NotificationService.instance.init();
   await NotificationService.instance.requestPermissions();
+  await PushNotificationService.instance.initialize();
   runApp(const WeekendActivityApp());
 }
 

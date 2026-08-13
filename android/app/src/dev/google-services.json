@@ -1,0 +1,21 @@
+{
+  "project_info": {
+    "project_number": "524446420668",
+    "project_id": "com-my-weekendplay-dev",
+    "storage_bucket": "com-my-weekendplay-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:524446420668:android:7814763916c3e7a8834ab9",
+        "android_client_info": {
+          "package_name": "com.my.weekendplay.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [{ "current_key": "AIzaSyDwMRX6ICwXalf11vrshwaSPG8276Q7RW8" }],
+      "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+    }
+  ],
+  "configuration_version": "1"
+}
