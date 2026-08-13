@@ -6,6 +6,7 @@ import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
+import '../widgets/external_network_image.dart';
 import 'travel_spot_detail_page.dart';
 import 'activity_detail_page.dart';
 import 'trails_list.dart';
@@ -222,8 +223,8 @@ class _SpotCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (spot.images.isNotEmpty)
-              Image.network(
-                spot.images.first,
+              ExternalNetworkImage(
+                url: spot.images.first,
                 height: 160,
                 width: double.infinity,
                 fit: BoxFit.cover,

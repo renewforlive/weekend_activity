@@ -7,6 +7,7 @@ import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
+import '../utils/official_website.dart';
 import '../widgets/recruitment_editor.dart';
 import '../widgets/schedule_time_picker.dart';
 
@@ -93,12 +94,12 @@ class ActivityDetailPage extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ActivityWebViewPage(
-                              title: activity.title,
-                              url: url,
-                            ),
+                        onPressed: () => openOfficialWebsite(
+                          context,
+                          url: url,
+                          nativePageBuilder: (_) => ActivityWebViewPage(
+                            title: activity.title,
+                            url: url,
                           ),
                         ),
                         icon: const Icon(Icons.open_in_new),

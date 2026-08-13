@@ -7,6 +7,7 @@ import '../l10n/app_strings.dart';
 import '../models/camping_site.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
+import '../utils/official_website.dart';
 
 /// 露營場詳情。營場沒有固定日期,由使用者挑要哪天去,再排入行程。
 class CampingDetailPage extends StatelessWidget {
@@ -27,13 +28,29 @@ class CampingDetailPage extends StatelessWidget {
           // 營場資料。缺漏的欄位直接不顯示,避免出現空白列。
           _InfoCard(
             rows: [
-              (Icons.place_outlined, AppStrings.campingAddress, site.displayAddress),
+              (
+                Icons.place_outlined,
+                AppStrings.campingAddress,
+                site.displayAddress,
+              ),
               if (site.status.isNotEmpty)
-                (Icons.storefront_outlined, AppStrings.campingStatus, site.status),
+                (
+                  Icons.storefront_outlined,
+                  AppStrings.campingStatus,
+                  site.status,
+                ),
               if (site.hasContact)
-                (Icons.call_outlined, AppStrings.campingPhone, site.contactNumber),
+                (
+                  Icons.call_outlined,
+                  AppStrings.campingPhone,
+                  site.contactNumber,
+                ),
               if (site.setupTime.isNotEmpty)
-                (Icons.event_outlined, AppStrings.campingSetupTime, site.setupTime),
+                (
+                  Icons.event_outlined,
+                  AppStrings.campingSetupTime,
+                  site.setupTime,
+                ),
             ],
           ),
 
@@ -51,7 +68,11 @@ class CampingDetailPage extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, color: AppColors.accent, size: 20),
+                  const Icon(
+                    Icons.info_outline,
+                    color: AppColors.accent,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -71,10 +92,11 @@ class CampingDetailPage extends StatelessWidget {
           if (site.url.isNotEmpty) ...[
             const SizedBox(height: 16),
             OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => _CampingWebViewPage(title: site.name, url: site.url),
-                ),
+              onPressed: () => openOfficialWebsite(
+                context,
+                url: site.url,
+                nativePageBuilder: (_) =>
+                    _CampingWebViewPage(title: site.name, url: site.url),
               ),
               icon: const Icon(Icons.open_in_new, size: 18),
               label: Text(AppStrings.campingOfficialSite),
@@ -116,7 +138,13 @@ class CampingDetailPage extends StatelessWidget {
     );
     if (time == null) return;
 
-    final at = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final at = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
     await state.addCampingToSchedule(site, at);
 
     messenger.showSnackBar(
@@ -195,7 +223,9 @@ class _LegalityNote extends StatelessWidget {
   Widget build(BuildContext context) {
     final legal = site.legality == CampingLegality.legal;
     final color = legal ? AppColors.primary : AppColors.danger;
-    final note = legal ? AppStrings.campingLegalNote : AppStrings.campingIllegalNote;
+    final note = legal
+        ? AppStrings.campingLegalNote
+        : AppStrings.campingIllegalNote;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -336,7 +366,9 @@ class _CampingWebViewPageState extends State<_CampingWebViewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title, overflow: TextOverflow.ellipsis)),
+      appBar: AppBar(
+        title: Text(widget.title, overflow: TextOverflow.ellipsis),
+      ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),

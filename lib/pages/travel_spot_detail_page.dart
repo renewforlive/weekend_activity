@@ -8,6 +8,8 @@ import '../data/app_state.dart';
 import '../l10n/app_strings.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
+import '../utils/official_website.dart';
+import '../widgets/external_network_image.dart';
 import '../widgets/recruitment_editor.dart';
 import '../widgets/schedule_time_picker.dart';
 
@@ -72,7 +74,11 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
                     Expanded(
                       child: Text(
                         spot.name,
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                     _OpenBadge(isOpen: spot.isOpen),
@@ -81,15 +87,30 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
                 const SizedBox(height: 12),
                 _InfoRow(
                   icon: Icons.place,
-                  value: [spot.distric, spot.address].where((s) => s.isNotEmpty).join(' · '),
+                  value: [
+                    spot.distric,
+                    spot.address,
+                  ].where((s) => s.isNotEmpty).join(' · '),
                 ),
                 const SizedBox(height: 20),
                 if (spot.introduction.isNotEmpty) ...[
-                  Text(AppStrings.introduction,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  Text(
+                    AppStrings.introduction,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  Text(spot.introduction,
-                      style: const TextStyle(fontSize: 14, height: 1.7, color: AppColors.textSecondary)),
+                  Text(
+                    spot.introduction,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.7,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
                   const SizedBox(height: 24),
                 ],
 
@@ -100,7 +121,12 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
                     width: double.infinity,
 
                     child: OutlinedButton.icon(
-                      onPressed: () => _openWebView(context, spot),
+                      onPressed: () => openOfficialWebsite(
+                        context,
+                        url: spot.url,
+                        nativePageBuilder: (_) =>
+                            _SpotWebViewPage(title: spot.name, url: spot.url),
+                      ),
                       icon: const Icon(Icons.public),
                       label: Text(AppStrings.openWebsite),
                       style: OutlinedButton.styleFrom(
@@ -125,7 +151,11 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
         height: 240,
         color: AppColors.soft,
         alignment: Alignment.center,
-        child: const Icon(Icons.image_not_supported_outlined, size: 48, color: AppColors.textSecondary),
+        child: const Icon(
+          Icons.image_not_supported_outlined,
+          size: 48,
+          color: AppColors.textSecondary,
+        ),
       );
     }
     return SizedBox(
@@ -136,8 +166,8 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
             controller: _pageController,
             itemCount: _images.length,
             onPageChanged: (i) => setState(() => _current = i),
-            itemBuilder: (context, i) => Image.network(
-              _images[i],
+            itemBuilder: (context, i) => ExternalNetworkImage(
+              url: _images[i],
               fit: BoxFit.cover,
               width: double.infinity,
               loadingBuilder: (context, child, progress) {
@@ -151,7 +181,11 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
               errorBuilder: (context, _, _) => Container(
                 color: AppColors.soft,
                 alignment: Alignment.center,
-                child: const Icon(Icons.broken_image_outlined, size: 48, color: AppColors.textSecondary),
+                child: const Icon(
+                  Icons.broken_image_outlined,
+                  size: 48,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           ),
@@ -181,14 +215,6 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
       ),
     );
   }
-
-  void _openWebView(BuildContext context, TravelSpot spot) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _SpotWebViewPage(title: spot.name, url: spot.url),
-      ),
-    );
-  }
 }
 
 /// 景點詳情頁的操作:排入行程(選時間)、發起招募。
@@ -199,14 +225,22 @@ class _SpotActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final scheduled = state.isScheduled(Activity.fromSpot(spot, DateTime.now()));
+    final scheduled = state.isScheduled(
+      Activity.fromSpot(spot, DateTime.now()),
+    );
     return Row(
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: scheduled ? null : () => showScheduleTimePicker(context, spot: spot),
+            onPressed: scheduled
+                ? null
+                : () => showScheduleTimePicker(context, spot: spot),
             icon: Icon(scheduled ? Icons.check : Icons.add_task, size: 18),
-            label: Text(scheduled ? AppStrings.scheduledAlready : AppStrings.addToSchedule),
+            label: Text(
+              scheduled
+                  ? AppStrings.scheduledAlready
+                  : AppStrings.addToSchedule,
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: scheduled ? AppColors.soft : AppColors.primary,
               foregroundColor: scheduled ? AppColors.primaryDark : Colors.white,
@@ -243,14 +277,27 @@ class _OpenBadge extends StatelessWidget {
     final color = isOpen ? AppColors.primary : AppColors.danger;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(isOpen ? Icons.check_circle : Icons.cancel, size: 16, color: color),
+          Icon(
+            isOpen ? Icons.check_circle : Icons.cancel,
+            size: 16,
+            color: color,
+          ),
           const SizedBox(width: 4),
-          Text(isOpen ? AppStrings.open : AppStrings.closed,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+          Text(
+            isOpen ? AppStrings.open : AppStrings.closed,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -269,8 +316,14 @@ class _InfoRow extends StatelessWidget {
         Icon(icon, size: 20, color: AppColors.accent),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(value.isEmpty ? '-' : value,
-              style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.5)),
+          child: Text(
+            value.isEmpty ? '-' : value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textPrimary,
+              height: 1.5,
+            ),
+          ),
         ),
       ],
     );
@@ -312,7 +365,9 @@ class _SpotWebViewPageState extends State<_SpotWebViewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title, overflow: TextOverflow.ellipsis)),
+      appBar: AppBar(
+        title: Text(widget.title, overflow: TextOverflow.ellipsis),
+      ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),

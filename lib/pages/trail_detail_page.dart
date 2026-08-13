@@ -7,6 +7,7 @@ import '../l10n/app_strings.dart';
 import '../models/hiking_trail.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
+import '../utils/official_website.dart';
 
 /// 步道詳情。步道沒有固定日期,由使用者挑要哪天去,再排入行程。
 class TrailDetailPage extends StatelessWidget {
@@ -34,9 +35,17 @@ class TrailDetailPage extends StatelessWidget {
               if (trail.duration.isNotEmpty)
                 (Icons.schedule, AppStrings.trailDuration, trail.duration),
               if (trail.bestSeason.isNotEmpty)
-                (Icons.wb_sunny_outlined, AppStrings.trailBestSeason, trail.bestSeason),
+                (
+                  Icons.wb_sunny_outlined,
+                  AppStrings.trailBestSeason,
+                  trail.bestSeason,
+                ),
               if (trail.pavement.isNotEmpty)
-                (Icons.landscape_outlined, AppStrings.trailPavement, trail.pavement),
+                (
+                  Icons.landscape_outlined,
+                  AppStrings.trailPavement,
+                  trail.pavement,
+                ),
               if (trail.system.isNotEmpty)
                 (Icons.map_outlined, AppStrings.trailSystem, trail.system),
               if (trail.admin.isNotEmpty)
@@ -55,7 +64,11 @@ class TrailDetailPage extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 20),
+                  const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppColors.danger,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -85,17 +98,22 @@ class TrailDetailPage extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               trail.guide,
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.6),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.6,
+              ),
             ),
           ],
 
           if (trail.url.isNotEmpty) ...[
             const SizedBox(height: 16),
             OutlinedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => _TrailWebViewPage(title: trail.name, url: trail.url),
-                ),
+              onPressed: () => openOfficialWebsite(
+                context,
+                url: trail.url,
+                nativePageBuilder: (_) =>
+                    _TrailWebViewPage(title: trail.name, url: trail.url),
               ),
               icon: const Icon(Icons.open_in_new, size: 18),
               label: Text(AppStrings.trailOfficialSite),
@@ -137,7 +155,13 @@ class TrailDetailPage extends StatelessWidget {
     );
     if (time == null) return;
 
-    final at = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final at = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
     await state.addTrailToSchedule(trail, at);
 
     messenger.showSnackBar(
@@ -183,12 +207,19 @@ class _DifficultyHeader extends StatelessWidget {
               children: [
                 Text(
                   d.label,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: d.color),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: d.color,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   trail.location,
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -238,7 +269,10 @@ class _InfoCard extends StatelessWidget {
                     width: 72,
                     child: Text(
                       label,
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ),
                   Expanded(
@@ -295,7 +329,9 @@ class _TrailWebViewPageState extends State<_TrailWebViewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title, overflow: TextOverflow.ellipsis)),
+      appBar: AppBar(
+        title: Text(widget.title, overflow: TextOverflow.ellipsis),
+      ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
