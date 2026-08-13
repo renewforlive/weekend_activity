@@ -1,4 +1,4 @@
-﻿import '../models/models.dart';
+import '../models/models.dart';
 
 /// 支援的語言。之後要加語言,在這裡新增,並於各字串的 _pick 補上對應翻譯。
 enum AppLang { zhTW, en }
@@ -39,15 +39,20 @@ class AppStrings {
   static String get cancel => _pick('取消', 'Cancel');
   static String get save => _pick('儲存', 'Save');
   static String get add => _pick('新增', 'Add');
-  static String costLabel(int cost) => cost == 0 ? free : _pick('NT\$ $cost', 'NT\$ $cost');
+  static String costLabel(int cost) =>
+      cost == 0 ? free : _pick('NT\$ $cost', 'NT\$ $cost');
 
   // ===== 活動頁 =====
   static String get activitiesTitle => _pick('探索活動', 'Explore');
   static String get recentThreeMonths => _pick('近三個月', 'Next 3 months');
   static String get sectionAttraction => _pick('景點', 'Attractions');
   static String get sectionExhibition => _pick('展覽', 'Exhibitions');
-  static String get spotsError => _pick('無法載入台北景點,請稍後再試。', 'Failed to load Taipei attractions. Try again later.');
-  static String get spotsEmpty => _pick('目前沒有景點資料。', 'No attractions right now.');
+  static String get spotsError => _pick(
+    '無法載入台北景點,請稍後再試。',
+    'Failed to load Taipei attractions. Try again later.',
+  );
+  static String get spotsEmpty =>
+      _pick('目前沒有景點資料。', 'No attractions right now.');
   static String get loadingMore => _pick('載入更多…', 'Loading more…');
 
   // ===== 登山步道 =====
@@ -68,8 +73,10 @@ class AppStrings {
 
   // ===== 露營場 =====
   static String get sectionCamping => _pick('露營場', 'Camping');
-  static String get campingError => _pick('無法載入露營場資料', 'Failed to load camping sites.');
-  static String get campingEmpty => _pick('這個縣市沒有相關資料', 'No camping sites here.');
+  static String get campingError =>
+      _pick('無法載入露營場資料', 'Failed to load camping sites.');
+  static String get campingEmpty =>
+      _pick('這個縣市沒有相關資料', 'No camping sites here.');
   static String get campingLegalOnly => _pick('只看合法營場', 'Legal only');
   static String get campingAddress => _pick('地址', 'Address');
   static String get campingStatus => _pick('營業狀態', 'Status');
@@ -80,9 +87,10 @@ class AppStrings {
   static String get campingOfficialSite => _pick('查看官方頁面', 'Official page');
   static String get campingLegalNote =>
       _pick('合法露營場已通過相關法規查核。', 'This site complies with regulations.');
-  static String get campingIllegalNote =>
-      _pick('這座營場違反相關法規,前往前請自行評估風險。',
-          'This site violates regulations. Please assess the risk yourself.');
+  static String get campingIllegalNote => _pick(
+    '這座營場違反相關法規,前往前請自行評估風險。',
+    'This site violates regulations. Please assess the risk yourself.',
+  );
   static String get pickHikingDate => _pick('選擇要去的日期', 'Pick a date');
   static String get noMoreData => _pick('沒有更多了', 'No more');
   static String get open => _pick('開放中', 'Open');
@@ -95,43 +103,61 @@ class AppStrings {
 
   // ===== 排入行程對話框 =====
   static String get pickScheduleTime => _pick('選擇排入時間', 'Pick a time');
-  static String get fixedTimeHint => _pick('此活動時間固定,不可更改', 'This event has a fixed time');
+  static String get fixedTimeHint =>
+      _pick('此活動時間固定,不可更改', 'This event has a fixed time');
   static String get pickDate => _pick('選擇日期', 'Select date');
   static String get pickTime => _pick('選擇時間', 'Select time');
   static String get confirm => _pick('確定排入', 'Add');
-  static String get selectDateFirst => _pick('請先選擇日期與時間', 'Please pick date and time');
+  static String get selectDateFirst =>
+      _pick('請先選擇日期與時間', 'Please pick date and time');
 
   // ===== 週曆行程 =====
   static String get today => _pick('今天', 'Today');
   static String get jumpToDate => _pick('跳到某一天', 'Jump to date');
   static String get noScheduleOnDay => _pick('這天還沒有行程', 'Nothing scheduled');
   static String weekOf(String range) => _pick(range, range);
-  static String get activitiesEmpty => _pick('這個縣市近三個月還沒有活動,\n換個縣市看看吧!', 'No activities here in the next 3 months.\nTry another city!');
+  static String get activitiesEmpty => _pick(
+    '這個縣市近三個月還沒有活動,\n換個縣市看看吧!',
+    'No activities here in the next 3 months.\nTry another city!',
+  );
   static String get scheduledAlready => _pick('已在行程', 'Scheduled');
   static String get addToSchedule => _pick('排入行程', 'Add to schedule');
-  static String get scheduledSnack => _pick('已排入行程,並幫你設定提醒 🔔', 'Added to schedule with a reminder 🔔');
+  static String get scheduledSnack =>
+      _pick('已排入行程,並幫你設定提醒 🔔', 'Added to schedule with a reminder 🔔');
   static String get startRecruitment => _pick('發起招募', 'Start recruiting');
 
   // ===== 行程頁 =====
   static String get scheduleTitle => _pick('我的行程', 'My schedule');
-  static String get scheduleEmpty => _pick('還沒有行程,\n到「活動」頁把想參加的排進來吧!', 'No plans yet.\nAdd activities from the Activities tab!');
-  static String remindAtLabel(String time) => _pick('提醒時間:$time', 'Reminds at $time');
+  static String get scheduleEmpty => _pick(
+    '還沒有行程,\n到「活動」頁把想參加的排進來吧!',
+    'No plans yet.\nAdd activities from the Activities tab!',
+  );
+  static String remindAtLabel(String time) =>
+      _pick('提醒時間:$time', 'Reminds at $time');
   static String get reminderOff => _pick('提醒已關閉', 'Reminder off');
   static String get adjustReminder => _pick('調整提醒時間', 'Adjust reminder');
 
   // ===== 已預約頁 =====
   static String get bookedTitle => _pick('已預約行程', 'Bookings');
-  static String get bookedEmpty => _pick('還沒有預約,\n排入活動或加入招募後會出現在這裡!', 'No bookings yet.\nThey show up after you join or schedule something!');
+  static String get bookedEmpty => _pick(
+    '還沒有預約,\n排入活動或加入招募後會出現在這裡!',
+    'No bookings yet.\nThey show up after you join or schedule something!',
+  );
   static String get bookingCount => _pick('預約數', 'Bookings');
   static String get estimatedCost => _pick('預估花費', 'Est. cost');
   static String get dateTBD => _pick('時間待定', 'Date TBD');
 
   // ===== 招募頁 =====
   static String get recruitmentTitle => _pick('招募討論版', 'Recruitment board');
-  static String get recruitmentEmpty => _pick('還沒有招募貼文,\n點右下角發起第一則揪團吧!', 'No posts yet.\nTap the button to start the first one!');
-  static String headcountLabel(int joined, int total) => _pick('$joined/$total 人', '$joined/$total ppl');
+  static String get recruitmentEmpty => _pick(
+    '還沒有招募貼文,\n點右下角發起第一則揪團吧!',
+    'No posts yet.\nTap the button to start the first one!',
+  );
+  static String headcountLabel(int joined, int total) =>
+      _pick('$joined/$total 人', '$joined/$total ppl');
   static String get hostedByMe => _pick('我發起', 'Mine');
-  static String get joinedTapToLeave => _pick('已加入(點擊退出)', 'Joined (tap to leave)');
+  static String get joinedTapToLeave =>
+      _pick('已加入(點擊退出)', 'Joined (tap to leave)');
   static String get full => _pick('人數已滿', 'Full');
   static String get join => _pick('我要加入', 'Join');
   static String get justNow => _pick('剛剛', 'just now');
@@ -141,7 +167,8 @@ class AppStrings {
 
   // ===== 個人頁 =====
   static String get profileTitle => _pick('個人頁', 'Profile');
-  static String get participatedLabel => _pick('是否參與過活動', 'Joined an activity?');
+  static String get participatedLabel =>
+      _pick('是否參與過活動', 'Joined an activity?');
   static String get participated => _pick('已參與', 'Yes');
   static String get notParticipated => _pick('尚未參與', 'Not yet');
   static String get hostedCountLabel => _pick('開啟招募次數', 'Recruits started');
@@ -152,22 +179,28 @@ class AppStrings {
   static String get nickname => _pick('暱稱', 'Nickname');
   static String get bio => _pick('自我介紹', 'Bio');
   static String get pickPhoto => _pick('新增照片', 'Add photo');
-  static String get noPhotos => _pick('還沒有照片,點右上角新增', 'No photos yet, tap add above');
+  static String get noPhotos =>
+      _pick('還沒有照片,點右上角新增', 'No photos yet, tap add above');
   static String get setAvatar => _pick('設定頭像', 'Set avatar');
   static String get removeAvatar => _pick('移除頭像', 'Remove avatar');
   static String get takePhoto => _pick('拍照', 'Take photo');
   static String get chooseFromGallery => _pick('從相簿選擇', 'Choose from gallery');
   static String get useEmoji => _pick('用圖示代表', 'Use an icon');
-  static String get photoFailed => _pick('無法取得照片,請確認權限設定', 'Could not get photo, check permissions');
-  static String get longPressToRemove => _pick('長按照片可刪除', 'Long press a photo to remove');
+  static String get photoFailed =>
+      _pick('無法取得照片,請確認權限設定', 'Could not get photo, check permissions');
+  static String get longPressToRemove =>
+      _pick('長按照片可刪除', 'Long press a photo to remove');
 
   // ===== 發起招募表單 =====
-  static String get recruitmentEditorSubtitle => _pick('填寫標題與內容,揪對活動有興趣的人一起!', 'Fill in the details and gather people!');
+  static String get recruitmentEditorSubtitle =>
+      _pick('填寫標題與內容,揪對活動有興趣的人一起!', 'Fill in the details and gather people!');
   static String get fieldTitle => _pick('標題', 'Title');
-  static String get titleHint => _pick('例如:週末陽明山健行揪團', 'e.g. Weekend hiking group');
+  static String get titleHint =>
+      _pick('例如:週末陽明山健行揪團', 'e.g. Weekend hiking group');
   static String get titleRequired => _pick('請輸入標題', 'Title required');
   static String get fieldContent => _pick('內容', 'Content');
-  static String get contentHint => _pick('說明集合時間、路線、注意事項…', 'Meeting time, route, notes…');
+  static String get contentHint =>
+      _pick('說明集合時間、路線、注意事項…', 'Meeting time, route, notes…');
   static String get contentRequired => _pick('請輸入內容', 'Content required');
   static String get headcountField => _pick('招募人數', 'Headcount');
   static String get peopleUnit => _pick('人', 'ppl');
@@ -175,24 +208,31 @@ class AppStrings {
   static String get costPerPerson => _pick('每人花費', 'Cost / person');
   static String get genderLimit => _pick('性別限制', 'Gender');
   static String get publishRecruitment => _pick('發布招募', 'Publish');
-  static String get publishedSnack => _pick('招募已發布!到招募版看看吧 📣', 'Published! Check the board 📣');
-  static String togetherGo(String title) => _pick('一起去「$title」', 'Join me at "$title"');
-  static String recruitmentContentPrefill(String city, String venue) => _pick('$city · $venue,有興趣的一起來!', '$city · $venue, join if interested!');
+  static String get publishedSnack =>
+      _pick('招募已發布!到招募版看看吧 📣', 'Published! Check the board 📣');
+  static String togetherGo(String title) =>
+      _pick('一起去「$title」', 'Join me at "$title"');
+  static String recruitmentContentPrefill(String city, String venue) =>
+      _pick('$city · $venue,有興趣的一起來!', '$city · $venue, join if interested!');
 
   // ===== 集合資訊(只有已核准成員與發起者看得到)=====
   static String get meetingInfoTitle => _pick('集合資訊', 'Meeting details');
   static String get meetingPointField => _pick('集合地點', 'Meeting point');
-  static String get meetingPointHint => _pick('例如:捷運劍潭站 1 號出口', 'e.g. Exit 1, Jiantan Station');
+  static String get meetingPointHint =>
+      _pick('例如:捷運劍潭站 1 號出口', 'e.g. Exit 1, Jiantan Station');
   static String get meetingTimeField => _pick('集合時間', 'Meeting time');
   static String get meetingTimeHint => _pick('點擊選擇時間', 'Tap to pick');
   static String get contactField => _pick('聯絡方式', 'Contact');
-  static String get contactHint => _pick('例如:LINE ID sunny_hike', 'e.g. LINE ID sunny_hike');
-  static String get meetingInfoLocked =>
-      _pick('加入並經發起者同意後,才會顯示集合地點與聯絡方式。',
-          'Meeting details show up once the host approves you.');
-  static String get meetingInfoOptional =>
-      _pick('可留空,之後再補。只有通過審核的成員看得到。',
-          'Optional. Only approved members can see this.');
+  static String get contactHint =>
+      _pick('例如:LINE ID sunny_hike', 'e.g. LINE ID sunny_hike');
+  static String get meetingInfoLocked => _pick(
+    '加入並經發起者同意後,才會顯示集合地點與聯絡方式。',
+    'Meeting details show up once the host approves you.',
+  );
+  static String get meetingInfoOptional => _pick(
+    '集合地點與時間為必填，只有通過審核的成員看得到。',
+    'Meeting point and time are required. Only approved members can see them.',
+  );
   static String get noMeetingInfoYet =>
       _pick('發起者還沒填集合資訊。', 'The host has not added meeting details yet.');
 

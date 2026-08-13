@@ -118,14 +118,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
     );
     if (date == null || !mounted) return;
     setState(() {
-      final previous = _activityDate;
-      _activityDate = DateTime(
-        date.year,
-        date.month,
-        date.day,
-        previous?.hour ?? 10,
-        previous?.minute ?? 0,
-      );
+      _activityDate = DateTime(date.year, date.month, date.day);
     });
   }
 
@@ -155,6 +148,12 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('請選擇活動日期')));
+      return;
+    }
+    if (_meetingTime == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('請選擇集合時間')));
       return;
     }
     setState(() => _saving = true);
@@ -345,7 +344,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                             child: Text(
                               _activityDate == null
                                   ? '請選擇活動日期'
-                                  : AppDate.monthDayWeekTime(_activityDate!),
+                                  : AppDate.monthDayWeek(_activityDate!),
                               style: TextStyle(
                                 color: _activityDate == null
                                     ? AppColors.textSecondary
@@ -455,15 +454,19 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _Label(AppStrings.meetingPointField),
+                        _Label('${AppStrings.meetingPointField} *'),
                         TextFormField(
                           controller: _meetingPoint,
                           decoration: InputDecoration(
                             hintText: AppStrings.meetingPointHint,
                           ),
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                              ? '請填寫集合地點'
+                              : null,
                         ),
                         const SizedBox(height: 14),
-                        _Label(AppStrings.meetingTimeField),
+                        _Label('${AppStrings.meetingTimeField} *'),
                         InkWell(
                           onTap: _pickMeetingTime,
                           borderRadius: BorderRadius.circular(12),
@@ -491,16 +494,6 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                                   ),
                                 ),
                                 const Spacer(),
-                                if (_meetingTime != null)
-                                  GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _meetingTime = null),
-                                    child: const Icon(
-                                      Icons.close,
-                                      size: 18,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
                               ],
                             ),
                           ),

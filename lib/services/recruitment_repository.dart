@@ -202,9 +202,7 @@ class RecruitmentRepository {
           'activity_title': relatedActivity?.title,
           'activity_city': relatedActivity?.city ?? city,
           'activity_venue': relatedActivity?.venue ?? activityPlace,
-          'activity_date': (relatedActivity?.date ?? activityDate)
-              .toUtc()
-              .toIso8601String(),
+          'activity_date': _dateOnly(relatedActivity?.date ?? activityDate),
           'meeting_point': meetingPoint.isEmpty ? null : meetingPoint,
           'meeting_time': meetingTime?.toUtc().toIso8601String(),
           'contact_info': contactInfo.isEmpty ? null : contactInfo,
@@ -246,7 +244,7 @@ class RecruitmentRepository {
           'p_cost': cost,
           'p_activity_city': city,
           'p_activity_venue': activityPlace,
-          'p_activity_date': activityDate.toUtc().toIso8601String(),
+          'p_activity_date': _dateOnly(activityDate),
           'p_meeting_point': meetingPoint.isEmpty ? null : meetingPoint,
           'p_meeting_time': meetingTime?.toUtc().toIso8601String(),
           'p_contact_info': contactInfo.isEmpty ? null : contactInfo,
@@ -358,6 +356,11 @@ class RecruitmentRepository {
         return HostActionResult.error;
     }
   }
+
+  /// Activity dates are calendar dates; only the optional meeting time carries
+  /// a time of day. Store the date at UTC midnight to keep it stable in SQL.
+  static String _dateOnly(DateTime value) =>
+      DateTime.utc(value.year, value.month, value.day).toIso8601String();
 
   /// 退出招募。
   Future<void> leave(String recruitmentId) async {

@@ -361,7 +361,7 @@ class _PostCard extends StatelessWidget {
                 if (post.activityDate != null)
                   _Tag(
                     icon: Icons.calendar_today_outlined,
-                    text: AppDate.monthDayWeekTime(post.activityDate!),
+                    text: AppDate.monthDayWeek(post.activityDate!),
                   ),
               ],
             ),
