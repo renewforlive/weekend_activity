@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:path/path.dart' as p;
 
 import '../models/models.dart';
@@ -59,6 +61,9 @@ class ProfileRepository {
       nickname: (nickname != null && nickname.isNotEmpty) ? nickname : '我',
       bio: (row['bio'] as String?) ?? '',
       avatarColorValue: avatarColor,
+      gender: ProfileGender.fromValue(row['gender'] as String?),
+      birthDate: _dateFrom(row['birth_date']),
+      interests: _interestsFrom(row['interests']),
       avatarUrl: avatarUrl,
       avatarPath: avatarPath,
       photos: photos,
@@ -70,6 +75,9 @@ class ProfileRepository {
     String? nickname,
     String? bio,
     int? avatarColorValue,
+    ProfileGender? gender,
+    DateTime? birthDate,
+    Set<InterestTag>? interests,
   }) async {
     final uid = SupabaseConfig.userId;
     if (uid == null) return;
@@ -80,6 +88,13 @@ class ProfileRepository {
     }
     if (bio != null) payload['bio'] = bio.trim();
     if (avatarColorValue != null) payload['avatar_color'] = avatarColorValue;
+    if (gender != null) payload['gender'] = gender.value;
+    if (birthDate != null) {
+      payload['birth_date'] = _dateTo(birthDate);
+    }
+    if (interests != null) {
+      payload['interests'] = interests.map((tag) => tag.value).toList();
+    }
     if (payload.isEmpty) return;
 
     // 用 update 只改指定欄位,避免 upsert 整列替換把 avatar_path 等欄位清掉。
@@ -102,12 +117,13 @@ class ProfileRepository {
   Future<({String url, String path})?> uploadAvatar(
     String localPath, {
     String? oldPath,
+    Uint8List? bytes,
   }) async {
     final uid = SupabaseConfig.userId;
     if (uid == null) return null;
 
-    final bytes = await localFileBytes(localPath);
-    if (bytes == null) return null;
+    final uploadBytes = bytes ?? await localFileBytes(localPath);
+    if (uploadBytes == null) return null;
 
     final ext = p.extension(localPath).isNotEmpty
         ? p.extension(localPath)
@@ -118,7 +134,7 @@ class ProfileRepository {
 
     await SupabaseConfig.client.storage
         .from(SupabaseConfig.photoBucket)
-        .uploadBinary(storagePath, bytes);
+        .uploadBinary(storagePath, uploadBytes);
 
     // 列已由 fetchOrCreateProfile 保證存在,用 update 只改這個欄位。
     await SupabaseConfig.client
@@ -178,7 +194,9 @@ class ProfileRepository {
   Future<PublicProfile?> fetchPublicProfile(String userId) async {
     final row = await SupabaseConfig.client
         .from(_profiles)
-        .select('id, nickname, bio, avatar_color, avatar_path')
+        .select(
+          'id, nickname, bio, avatar_color, avatar_path, gender, birth_date, interests',
+        )
         .eq('id', userId)
         .maybeSingle();
     if (row == null) return null;
@@ -202,6 +220,9 @@ class ProfileRepository {
       nickname: nickname == null || nickname.isEmpty ? '使用者' : nickname,
       bio: (row['bio'] as String?) ?? '',
       avatarColorValue: avatarColor,
+      gender: ProfileGender.fromValue(row['gender'] as String?),
+      birthDate: _dateFrom(row['birth_date']),
+      interests: _interestsFrom(row['interests']),
       avatarUrl: avatarPath == null || avatarPath.isEmpty
           ? null
           : SupabaseConfig.client.storage
@@ -236,13 +257,33 @@ class ProfileRepository {
     return list;
   }
 
+  static DateTime? _dateFrom(dynamic value) {
+    if (value is! String || value.trim().isEmpty) return null;
+    return DateTime.tryParse(value);
+  }
+
+  static String _dateTo(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+  static Set<InterestTag> _interestsFrom(dynamic raw) {
+    if (raw is! List) return <InterestTag>{};
+    return raw
+        .whereType<String>()
+        .map(InterestTag.fromValue)
+        .whereType<InterestTag>()
+        .toSet();
+  }
+
   /// 上傳照片檔並寫入紀錄。回傳新增的照片(含公開網址)。
-  Future<ProfilePhoto?> uploadPhoto(String localPath) async {
+  Future<ProfilePhoto?> uploadPhoto(
+    String localPath, {
+    Uint8List? bytes,
+  }) async {
     final uid = SupabaseConfig.userId;
     if (uid == null) return null;
 
-    final bytes = await localFileBytes(localPath);
-    if (bytes == null) return null;
+    final uploadBytes = bytes ?? await localFileBytes(localPath);
+    if (uploadBytes == null) return null;
 
     // 路徑格式 {uid}/{timestamp}{ext},Storage 政策以第一層資料夾比對身分。
     final ext = p.extension(localPath).isNotEmpty
@@ -252,7 +293,7 @@ class ProfileRepository {
 
     await SupabaseConfig.client.storage
         .from(SupabaseConfig.photoBucket)
-        .uploadBinary(storagePath, bytes);
+        .uploadBinary(storagePath, uploadBytes);
 
     final inserted = await SupabaseConfig.client
         .from(_photos)

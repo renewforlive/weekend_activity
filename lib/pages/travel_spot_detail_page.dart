@@ -132,7 +132,6 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primaryDark,
                         side: const BorderSide(color: AppColors.primary),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                     ),
                   ),
@@ -244,7 +243,6 @@ class _SpotActions extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: scheduled ? AppColors.soft : AppColors.primary,
               foregroundColor: scheduled ? AppColors.primaryDark : Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
             ),
           ),
         ),
@@ -260,7 +258,6 @@ class _SpotActions extends StatelessWidget {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.accent,
               side: const BorderSide(color: AppColors.accent),
-              padding: const EdgeInsets.symmetric(vertical: 14),
             ),
           ),
         ),

@@ -9,6 +9,7 @@ import '../services/local_file.dart';
 import '../theme/app_theme.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/account_section.dart';
+import '../widgets/interest_tag_selector.dart';
 
 /// 個人頁:頭像、照片(可拍照/選相簿)、暱稱、自介、是否參與過活動、開啟招募次數。
 class ProfilePage extends StatelessWidget {
@@ -31,6 +32,10 @@ class ProfilePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
+          if (state.requiresProfileCompletion) ...[
+            const _ProfileCompletionNotice(),
+            const SizedBox(height: 16),
+          ],
           Center(
             child: Column(
               children: [
@@ -63,6 +68,25 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (p.gender != ProfileGender.undisclosed || p.age != null) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 8,
+                    children: [
+                      if (p.gender != ProfileGender.undisclosed)
+                        _ProfileInfoChip(
+                          icon: Icons.person_outline,
+                          label: p.gender.label,
+                        ),
+                      if (p.age != null)
+                        _ProfileInfoChip(
+                          icon: Icons.cake_outlined,
+                          label: '${p.age} 歲',
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -92,6 +116,17 @@ class ProfilePage extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          const Text(
+            '感興趣的活動',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _InterestTags(tags: p.interests),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -173,43 +208,8 @@ class ProfilePage extends StatelessWidget {
   }
 
   Future<void> _editProfile(BuildContext context, AppState state) async {
-    final nickCtrl = TextEditingController(text: state.profile.nickname);
-    final bioCtrl = TextEditingController(text: state.profile.bio);
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text(AppStrings.editProfile),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nickCtrl,
-              decoration: InputDecoration(labelText: AppStrings.nickname),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: bioCtrl,
-              maxLines: 3,
-              decoration: InputDecoration(labelText: AppStrings.bio),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(AppStrings.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              state.updateProfile(nickname: nickCtrl.text, bio: bioCtrl.text);
-              Navigator.pop(ctx);
-            },
-            child: Text(AppStrings.save),
-          ),
-        ],
-      ),
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => _EditProfilePage(state: state)),
     );
   }
 
@@ -265,7 +265,7 @@ class ProfilePage extends StatelessWidget {
                   _pickAvatar(context, state, ImageSource.gallery);
                 },
               ),
-              if (hasAvatar)
+              if (hasAvatar && !state.isAuthenticated)
                 ListTile(
                   leading: const Icon(
                     Icons.delete_outline,
@@ -302,7 +302,7 @@ class ProfilePage extends StatelessWidget {
         imageQuality: 85,
       );
       if (file == null) return; // 使用者取消
-      await state.uploadAvatar(file.path);
+      await state.uploadAvatar(file.path, bytes: await file.readAsBytes());
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(AppStrings.photoFailed)));
     }
@@ -359,17 +359,18 @@ class ProfilePage extends StatelessWidget {
                   _pickImage(context, state, ImageSource.gallery);
                 },
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.emoji_emotions_outlined,
-                  color: AppColors.accent,
+              if (!state.isAuthenticated)
+                ListTile(
+                  leading: const Icon(
+                    Icons.emoji_emotions_outlined,
+                    color: AppColors.accent,
+                  ),
+                  title: Text(AppStrings.useEmoji),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _pickEmoji(context, state);
+                  },
                 ),
-                title: Text(AppStrings.useEmoji),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickEmoji(context, state);
-                },
-              ),
             ],
           ),
         ),
@@ -392,7 +393,7 @@ class ProfilePage extends StatelessWidget {
         imageQuality: 85,
       );
       if (file == null) return; // 使用者取消
-      state.addPhotoFile(file.path);
+      await state.addPhotoFile(file.path, bytes: await file.readAsBytes());
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(AppStrings.photoFailed)));
     }
@@ -461,6 +462,199 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
+class _EditProfilePage extends StatefulWidget {
+  const _EditProfilePage({required this.state});
+
+  final AppState state;
+
+  @override
+  State<_EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<_EditProfilePage> {
+  late final TextEditingController _nickname;
+  late final TextEditingController _bio;
+  ProfileGender? _gender;
+  DateTime? _birthDate;
+  late final Set<InterestTag> _interests;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.state.profile;
+    _nickname = TextEditingController(text: profile.nickname);
+    _bio = TextEditingController(text: profile.bio);
+    _gender = profile.gender == ProfileGender.undisclosed
+        ? null
+        : profile.gender;
+    _birthDate = profile.birthDate;
+    _interests = profile.interests.toSet();
+  }
+
+  @override
+  void dispose() {
+    _nickname.dispose();
+    _bio.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickBirthDate() async {
+    final today = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(today.year - 25),
+      firstDate: DateTime(1920),
+      lastDate: DateTime(today.year - 13, today.month, today.day),
+      helpText: '選擇出生年月日',
+    );
+    if (date != null && mounted) setState(() => _birthDate = date);
+  }
+
+  String _dateText(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}/${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}';
+
+  void _save() {
+    if (_gender == null || _birthDate == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('請選擇性別並填寫出生年月日。')));
+      return;
+    }
+    widget.state.updateProfile(
+      nickname: _nickname.text,
+      bio: _bio.text,
+      gender: _gender,
+      birthDate: _birthDate,
+      interests: _interests,
+    );
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(AppStrings.editProfile)),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                children: [
+                  TextField(
+                    controller: _nickname,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(labelText: AppStrings.nickname),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _bio,
+                    maxLines: 4,
+                    decoration: InputDecoration(labelText: AppStrings.bio),
+                  ),
+                  const SizedBox(height: 22),
+                  const Text(
+                    '性別',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [ProfileGender.male, ProfileGender.female]
+                        .map(
+                          (item) => ChoiceChip(
+                            label: Text(item.label),
+                            selected: _gender == item,
+                            onSelected: (_) => setState(() => _gender = item),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    onTap: _pickBirthDate,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: '出生年月日',
+                        prefixIcon: Icon(Icons.cake_outlined),
+                      ),
+                      child: Text(
+                        _birthDate == null ? '尚未填寫' : _dateText(_birthDate!),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  const Text(
+                    '感興趣的活動',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 8),
+                  InterestTagSelector(
+                    selected: _interests,
+                    onChanged: (tag) => setState(() {
+                      if (_interests.contains(tag)) {
+                        _interests.remove(tag);
+                      } else {
+                        _interests.add(tag);
+                      }
+                    }),
+                  ),
+                ],
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _save,
+                    icon: const Icon(Icons.check),
+                    label: Text(AppStrings.save),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileCompletionNotice extends StatelessWidget {
+  const _ProfileCompletionNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: .13),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.accent.withValues(alpha: .35)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.assignment_ind_outlined, color: AppColors.accent),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '請完成個人資料：選擇性別、填寫生日與上傳頭像，才能繼續使用 App。',
+              style: TextStyle(color: AppColors.textPrimary, height: 1.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StatCard extends StatelessWidget {
   const _StatCard({
     required this.icon,
@@ -510,6 +704,66 @@ class _StatCard extends StatelessWidget {
 
 /// 照片格線。實際照片用 Image.file 顯示,emoji 用文字顯示。
 /// 點擊放大預覽,長按刪除。
+class _ProfileInfoChip extends StatelessWidget {
+  const _ProfileInfoChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.soft,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: AppColors.primaryDark),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InterestTags extends StatelessWidget {
+  const _InterestTags({required this.tags});
+
+  final Set<InterestTag> tags;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tags.isEmpty) {
+      return const Text(
+        '尚未選擇興趣活動',
+        style: TextStyle(color: AppColors.textSecondary),
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: tags
+          .map(
+            (tag) => Chip(
+              avatar: Icon(tag.icon, size: 16, color: AppColors.primaryDark),
+              label: Text(tag.label),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
 class _PhotoGrid extends StatelessWidget {
   const _PhotoGrid({required this.photos, required this.onRemove});
   final List<ProfilePhoto> photos;

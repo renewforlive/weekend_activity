@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../data/app_state.dart';
@@ -53,8 +55,11 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
   DateTime? _activityDate;
   String _city = taiwanCities.first;
   bool _saving = false;
+  Uint8List? _coverBytes;
+  String? _coverFilePath;
 
   bool get _isEditing => widget.editing != null;
+  bool get _isLocked => widget.editing?.isConfirmed ?? false;
 
   @override
   void initState() {
@@ -142,6 +147,45 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
     });
   }
 
+  Future<void> _pickCover() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 92,
+    );
+    if (picked == null || !mounted) return;
+
+    final cropped = await ImageCropper().cropImage(
+      sourcePath: picked.path,
+      aspectRatio: const CropAspectRatio(ratioX: 16, ratioY: 9),
+      maxWidth: 1280,
+      maxHeight: 720,
+      compressFormat: ImageCompressFormat.jpg,
+      compressQuality: 88,
+      uiSettings: [
+        AndroidUiSettings(
+          toolbarTitle: '裁切招募封面',
+          toolbarColor: AppColors.primaryDark,
+          toolbarWidgetColor: Colors.white,
+          hideBottomControls: true,
+          lockAspectRatio: true,
+        ),
+        IOSUiSettings(
+          title: '裁切招募封面',
+          aspectRatioLockEnabled: true,
+          aspectRatioPickerButtonHidden: true,
+        ),
+        WebUiSettings(context: context, presentStyle: WebPresentStyle.dialog),
+      ],
+    );
+    if (cropped == null || !mounted) return;
+    final bytes = await cropped.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _coverBytes = bytes;
+      _coverFilePath = cropped.path;
+    });
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_activityDate == null) {
@@ -177,6 +221,9 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
         meetingPoint: _meetingPoint.text.trim(),
         meetingTime: _meetingTime,
         contactInfo: _contact.text.trim(),
+        coverBytes: _coverBytes,
+        coverFilePath: _coverFilePath,
+        oldCoverPath: post.coverPath,
       );
       if (!mounted) return;
       setState(() => _saving = false);
@@ -201,6 +248,8 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
       meetingPoint: _meetingPoint.text.trim(),
       meetingTime: _meetingTime,
       contactInfo: _contact.text.trim(),
+      coverBytes: _coverBytes,
+      coverFilePath: _coverFilePath,
     );
     if (!mounted) return;
     setState(() => _saving = false);
@@ -272,9 +321,54 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (_isLocked) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.only(bottom: 16),
+                            decoration: BoxDecoration(
+                              color: AppColors.soft,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(
+                                  Icons.lock_outline,
+                                  color: AppColors.primaryDark,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '已成團，僅可修改聯繫方式。',
+                                    style: TextStyle(
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        _Label('招募封面（選填）'),
+                        const SizedBox(height: 6),
+                        Text(
+                          '請裁切為 16:9，最多 1280 × 720；會顯示在招募列表標題上方。',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        _RecruitmentCoverPicker(
+                          bytes: _coverBytes,
+                          existingUrl: widget.editing?.coverUrl,
+                          enabled: !_isLocked && !_saving,
+                          onTap: _pickCover,
+                        ),
+                        const SizedBox(height: 18),
                         _Label(AppStrings.fieldTitle),
                         TextFormField(
                           controller: _title,
+                          readOnly: _isLocked,
                           decoration: InputDecoration(
                             hintText: AppStrings.titleHint,
                           ),
@@ -286,6 +380,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                         _Label(AppStrings.fieldContent),
                         TextFormField(
                           controller: _content,
+                          readOnly: _isLocked,
                           maxLines: 4,
                           decoration: InputDecoration(
                             hintText: AppStrings.contentHint,
@@ -315,14 +410,19 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                             for (final city in taiwanCities)
                               DropdownMenuItem(value: city, child: Text(city)),
                           ],
-                          onChanged: (city) {
-                            if (city != null) setState(() => _city = city);
-                          },
+                          onChanged: _isLocked
+                              ? null
+                              : (city) {
+                                  if (city != null) {
+                                    setState(() => _city = city);
+                                  }
+                                },
                         ),
                         const SizedBox(height: 14),
                         _Label('活動地點 *'),
                         TextFormField(
                           controller: _activityPlace,
+                          readOnly: _isLocked,
                           decoration: const InputDecoration(
                             hintText: '例如：台北流行音樂中心、阿里山森林步道',
                             prefixIcon: Icon(Icons.place_outlined),
@@ -335,7 +435,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                         const SizedBox(height: 14),
                         _Label('活動日期 *'),
                         InkWell(
-                          onTap: _pickActivityDate,
+                          onTap: _isLocked ? null : _pickActivityDate,
                           borderRadius: BorderRadius.circular(12),
                           child: InputDecorator(
                             decoration: const InputDecoration(
@@ -364,6 +464,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                                   _Label(AppStrings.headcountField),
                                   TextFormField(
                                     controller: _headcount,
+                                    readOnly: _isLocked,
                                     keyboardType: TextInputType.number,
                                     inputFormatters: [
                                       FilteringTextInputFormatter.digitsOnly,
@@ -390,6 +491,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                                   _Label(AppStrings.costPerPerson),
                                   TextFormField(
                                     controller: _cost,
+                                    readOnly: _isLocked,
                                     keyboardType: TextInputType.number,
                                     inputFormatters: [
                                       FilteringTextInputFormatter.digitsOnly,
@@ -412,7 +514,9 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                               ChoiceChip(
                                 label: Text(AppStrings.genderLabel(g)),
                                 selected: _gender == g,
-                                onSelected: (_) => setState(() => _gender = g),
+                                onSelected: _isLocked
+                                    ? null
+                                    : (_) => setState(() => _gender = g),
                                 selectedColor: AppColors.primary,
                                 labelStyle: TextStyle(
                                   color: _gender == g
@@ -457,6 +561,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                         _Label('${AppStrings.meetingPointField} *'),
                         TextFormField(
                           controller: _meetingPoint,
+                          readOnly: _isLocked,
                           decoration: InputDecoration(
                             hintText: AppStrings.meetingPointHint,
                           ),
@@ -468,7 +573,7 @@ class _RecruitmentEditorSheetState extends State<_RecruitmentEditorSheet> {
                         const SizedBox(height: 14),
                         _Label('${AppStrings.meetingTimeField} *'),
                         InkWell(
-                          onTap: _pickMeetingTime,
+                          onTap: _isLocked ? null : _pickMeetingTime,
                           borderRadius: BorderRadius.circular(12),
                           child: InputDecorator(
                             decoration: const InputDecoration(),
@@ -554,6 +659,97 @@ class _Label extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecruitmentCoverPicker extends StatelessWidget {
+  const _RecruitmentCoverPicker({
+    required this.bytes,
+    required this.existingUrl,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final Uint8List? bytes;
+  final String? existingUrl;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPreview = bytes != null || (existingUrl?.isNotEmpty ?? false);
+    return Material(
+      color: AppColors.soft,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(14),
+        child: AspectRatio(
+          aspectRatio: 16 / 9,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (bytes != null)
+                  Image.memory(bytes!, fit: BoxFit.cover)
+                else if (existingUrl?.isNotEmpty ?? false)
+                  Image.network(existingUrl!, fit: BoxFit.cover),
+                if (!hasPreview)
+                  const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_photo_alternate_outlined,
+                        size: 34,
+                        color: AppColors.primaryDark,
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '選擇招募封面',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                if (hasPreview && enabled)
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Container(
+                      margin: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: .62),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.crop, size: 16, color: Colors.white),
+                          SizedBox(width: 5),
+                          Text(
+                            '更換並裁切',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );

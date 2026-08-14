@@ -8,6 +8,9 @@ create table if not exists public.profiles (
   bio text default '',
   avatar_color bigint default 4282102579,
   avatar_path text,
+  gender text not null default 'undisclosed' check (gender in ('male', 'female', 'non_binary', 'undisclosed')),
+  birth_date date,
+  interests text[] not null default '{}',
   created_at timestamptz not null default now()
 );
 
@@ -34,6 +37,8 @@ create table if not exists public.recruitments (
   meeting_point text,
   meeting_time timestamptz,
   contact_info text,
+  cover_path text,
+  status text not null default 'recruiting' check (status in ('recruiting', 'confirmed', 'completed', 'failed')),
   created_at timestamptz not null default now()
 );
 

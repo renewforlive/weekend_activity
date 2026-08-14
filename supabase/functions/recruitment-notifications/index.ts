@@ -112,7 +112,7 @@ Deno.serve(async (request) => {
     .maybeSingle()
   if (recruitment == null) return Response.json({ error: 'Not found' }, { status: 404, headers: corsHeaders })
 
-  let recipientId: string
+  let recipientIds: string[]
   let title: string
   let body: string
   if (type === 'join_request') {
@@ -120,23 +120,40 @@ Deno.serve(async (request) => {
     const { data: membership } = await admin.from('recruitment_members')
       .select('status').eq('recruitment_id', recruitmentId).eq('user_id', user.id).maybeSingle()
     if (membership == null || membership.status !== 'pending') return Response.json({ error: 'Forbidden' }, { status: 403, headers: corsHeaders })
-    recipientId = recruitment.author_id
+    recipientIds = [recruitment.author_id]
     title = '\u65b0\u7684\u52a0\u5165\u7533\u8acb'
     body = '\u6709\u4eba\u7533\u8acb\u52a0\u5165\uff1a' + recruitment.title
   } else if (type === 'member_status' && (status === 'approved' || status === 'rejected')) {
     if (recruitment.author_id !== user.id || typeof memberId !== 'string') return Response.json({ error: 'Forbidden' }, { status: 403, headers: corsHeaders })
-    recipientId = memberId
+    recipientIds = [memberId]
     title = status === 'approved'
       ? '\u52a0\u5165\u7533\u8acb\u5df2\u901a\u904e'
       : '\u52a0\u5165\u7533\u8acb\u672a\u901a\u904e'
     body = status === 'approved'
       ? '\u4f60\u5df2\u6210\u529f\u52a0\u5165\uff1a' + recruitment.title
       : recruitment.title + '\u7684\u52a0\u5165\u7533\u8acb\u672a\u901a\u904e'
+  } else if (type === 'recruitment_status' && (status === 'confirmed' || status === 'failed')) {
+    if (recruitment.author_id !== user.id) return Response.json({ error: 'Forbidden' }, { status: 403, headers: corsHeaders })
+    const { data: members } = await admin.from('recruitment_members')
+      .select('user_id')
+      .eq('recruitment_id', recruitmentId)
+      .eq('status', 'approved')
+      .neq('user_id', user.id)
+    recipientIds = (members ?? [])
+      .map((member) => member.user_id)
+      .filter((id): id is string => typeof id === 'string')
+    title = status === 'confirmed'
+      ? '\u63ea\u5718\u5df2\u78ba\u5b9a\u6210\u5718'
+      : '\u63ea\u5718\u5df2\u53d6\u6d88'
+    body = status === 'confirmed'
+      ? '\u4f60\u53c3\u52a0\u7684\u300c' + recruitment.title + '\u300d\u5df2\u78ba\u5b9a\u6210\u5718\uff0c\u8acb\u6ce8\u610f\u96c6\u5408\u8cc7\u8a0a\u3002'
+      : '\u5f88\u62b1\u6b49\uff0c\u300c' + recruitment.title + '\u300d\u5df2\u653e\u68c4\u62db\u52df\u3002'
   } else {
     return Response.json({ error: 'Invalid notification request' }, { status: 400, headers: corsHeaders })
   }
 
-  const { data: devices } = await admin.from('device_tokens').select('token').eq('user_id', recipientId)
+  if (recipientIds.length === 0) return Response.json({ delivered: 0 }, { headers: corsHeaders })
+  const { data: devices } = await admin.from('device_tokens').select('token').in('user_id', recipientIds)
   const tokens = (devices ?? []).map((device) => device.token).filter((token): token is string => typeof token === 'string')
   if (tokens.length === 0) return Response.json({ delivered: 0 }, { headers: corsHeaders })
 

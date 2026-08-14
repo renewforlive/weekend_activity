@@ -4,7 +4,8 @@ import 'supabase_config.dart';
 
 /// 認證結果。成功時 error 為 null。
 class AuthResult {
-  const AuthResult.success({this.requiresEmailConfirmation = false}) : error = null;
+  const AuthResult.success({this.requiresEmailConfirmation = false})
+    : error = null;
   const AuthResult.failure(this.error) : requiresEmailConfirmation = false;
 
   final String? error;
@@ -43,13 +44,18 @@ class AuthService {
   Future<AuthResult> signUp({
     required String email,
     required String password,
+    Map<String, dynamic>? profileData,
   }) async {
     try {
       if (isAnonymous) {
         // 匿名升級:綁定 email 與密碼,user id 不變。
         await _auth.signOut();
       }
-      final response = await _auth.signUp(email: email, password: password);
+      final response = await _auth.signUp(
+        email: email,
+        password: password,
+        data: profileData,
+      );
       return AuthResult.success(
         requiresEmailConfirmation: response.session == null,
       );
@@ -118,19 +124,22 @@ class AuthService {
     if (msg.contains('invalid login credentials')) {
       return 'Email 或密碼不正確。';
     }
-    if (msg.contains('already registered') || msg.contains('already been registered')) {
+    if (msg.contains('already registered') ||
+        msg.contains('already been registered')) {
       return '這個 Email 已經註冊過了,請直接登入。';
     }
     if (msg.contains('password should be at least')) {
       return '密碼長度不足,至少需要 6 個字元。';
     }
-    if (msg.contains('unable to validate email') || msg.contains('invalid email')) {
+    if (msg.contains('unable to validate email') ||
+        msg.contains('invalid email')) {
       return 'Email 格式不正確。';
     }
     if (msg.contains('email not confirmed')) {
       return '請先到信箱點擊驗證連結。';
     }
-    if (msg.contains('over_email_send_rate_limit') || msg.contains('rate limit')) {
+    if (msg.contains('over_email_send_rate_limit') ||
+        msg.contains('rate limit')) {
       return '操作過於頻繁,請稍後再試。';
     }
     return e.message;

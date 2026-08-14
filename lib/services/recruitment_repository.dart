@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:path/path.dart' as p;
+
 import '../models/models.dart';
 import 'supabase_config.dart';
 
@@ -13,19 +17,21 @@ enum HostActionResult {
 
   /// 更新招募時,新名額小於目前已佔用的人數。
   headcountTooLow,
+  invalidStatus,
   error,
 }
 
 /// 招募討論版的遠端存取。
 class RecruitmentRepository {
   static const _recruitments = 'recruitments';
-  static const _members = 'recruitment_members';
 
   /// 讀取所有招募貼文(含發起人與成員暱稱)。
   ///
   /// 注意:recruitments.author_id 的外鍵指向 auth.users,不是 profiles,
   /// 所以無法用 PostgREST 的 embed 直接帶出暱稱,改為分批查詢後在本地組裝。
   Future<List<RecruitmentPost>> fetchAll() async {
+    // Moves elapsed posts to their terminal state before the feed is loaded.
+    await SupabaseConfig.client.rpc('archive_expired_recruitments');
     final rows = await SupabaseConfig.client
         .from(_recruitments)
         .select('*, recruitment_members(user_id, status, guest_count)')
@@ -149,6 +155,9 @@ class RecruitmentRepository {
           ? null
           : DateTime.tryParse(meetingRaw)?.toLocal(),
       contactInfo: (row['contact_info'] as String?) ?? '',
+      coverPath: (row['cover_path'] as String?)?.trim(),
+      coverUrl: _coverUrl(row['cover_path'] as String?),
+      status: RecruitmentStatus.fromText(row['status'] as String?),
       members: members,
     );
   }
@@ -168,6 +177,48 @@ class RecruitmentRepository {
 
   static String _genderTo(GenderPref g) => g.name;
 
+  static String? _coverUrl(String? path) {
+    final value = path?.trim();
+    if (value == null || value.isEmpty) return null;
+    return SupabaseConfig.client.storage
+        .from(SupabaseConfig.photoBucket)
+        .getPublicUrl(value);
+  }
+
+  /// Uploads a 16:9 recruitment cover under the signed-in user's folder.
+  Future<String> uploadCover({
+    required Uint8List bytes,
+    required String filePath,
+  }) async {
+    final uid = SupabaseConfig.userId;
+    if (uid == null) throw StateError('尚未登入，無法上傳招募封面');
+    final ext = p.extension(filePath).isEmpty ? '.jpg' : p.extension(filePath);
+    final storagePath =
+        '$uid/recruitment-covers/${DateTime.now().millisecondsSinceEpoch}$ext';
+    await SupabaseConfig.client.storage
+        .from(SupabaseConfig.photoBucket)
+        .uploadBinary(storagePath, bytes);
+    return storagePath;
+  }
+
+  Future<void> removeCover(String? storagePath) async {
+    if (storagePath == null || storagePath.isEmpty) return;
+    try {
+      await SupabaseConfig.client.storage
+          .from(SupabaseConfig.photoBucket)
+          .remove([storagePath]);
+    } catch (_) {
+      // A stale cover does not prevent the recruitment from being updated.
+    }
+  }
+
+  Future<void> updateCover(String recruitmentId, String coverPath) async {
+    await SupabaseConfig.client
+        .from(_recruitments)
+        .update({'cover_path': coverPath})
+        .eq('id', recruitmentId);
+  }
+
   /// 發起招募。建立後自動把自己加入成員(狀態為已核准)。
   ///
   /// 成功回傳新貼文 id;失敗丟出例外由呼叫端處理。
@@ -184,6 +235,7 @@ class RecruitmentRepository {
     String meetingPoint = '',
     DateTime? meetingTime,
     String contactInfo = '',
+    String? coverPath,
   }) async {
     final uid = SupabaseConfig.userId;
     if (uid == null) {
@@ -206,6 +258,7 @@ class RecruitmentRepository {
           'meeting_point': meetingPoint.isEmpty ? null : meetingPoint,
           'meeting_time': meetingTime?.toUtc().toIso8601String(),
           'contact_info': contactInfo.isEmpty ? null : contactInfo,
+          'cover_path': coverPath,
         })
         .select()
         .single();
@@ -318,6 +371,28 @@ class RecruitmentRepository {
     }
   }
 
+  Future<HostActionResult> setRecruitmentStatus({
+    required String recruitmentId,
+    required RecruitmentStatus status,
+  }) async {
+    try {
+      final result = await SupabaseConfig.client.rpc(
+        'set_recruitment_status',
+        params: {'p_recruitment_id': recruitmentId, 'p_status': status.name},
+      );
+      if (result == 'ok') {
+        await _sendRecruitmentNotification(
+          type: 'recruitment_status',
+          recruitmentId: recruitmentId,
+          status: status.name,
+        );
+      }
+      return _hostResultFrom(result);
+    } catch (_) {
+      return HostActionResult.error;
+    }
+  }
+
   Future<void> _sendRecruitmentNotification({
     required String type,
     required String recruitmentId,
@@ -352,6 +427,8 @@ class RecruitmentRepository {
         return HostActionResult.notAuthenticated;
       case 'headcount_too_low':
         return HostActionResult.headcountTooLow;
+      case 'invalid_status':
+        return HostActionResult.invalidStatus;
       default:
         return HostActionResult.error;
     }
@@ -363,14 +440,16 @@ class RecruitmentRepository {
       DateTime.utc(value.year, value.month, value.day).toIso8601String();
 
   /// 退出招募。
-  Future<void> leave(String recruitmentId) async {
-    final uid = SupabaseConfig.userId;
-    if (uid == null) return;
-    await SupabaseConfig.client
-        .from(_members)
-        .delete()
-        .eq('recruitment_id', recruitmentId)
-        .eq('user_id', uid);
+  Future<HostActionResult> leave(String recruitmentId) async {
+    try {
+      final result = await SupabaseConfig.client.rpc(
+        'leave_recruitment',
+        params: {'p_recruitment_id': recruitmentId},
+      );
+      return _hostResultFrom(result);
+    } catch (_) {
+      return HostActionResult.error;
+    }
   }
 
   /// 我發起的招募數量。

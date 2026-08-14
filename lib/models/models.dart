@@ -32,6 +32,52 @@ enum GenderPref {
   final String label;
 }
 
+/// 個人資料的性別。招募的性別限制與個人資料分開，避免混用語意。
+enum ProfileGender {
+  male('male', '男'),
+  female('female', '女'),
+  undisclosed('undisclosed', '');
+
+  const ProfileGender(this.value, this.label);
+  final String value;
+  final String label;
+
+  static ProfileGender fromValue(String? value) {
+    for (final gender in ProfileGender.values) {
+      if (gender.value == value) return gender;
+    }
+    return ProfileGender.undisclosed;
+  }
+}
+
+/// 個人頁可公開的興趣活動標籤。
+enum InterestTag {
+  hiking('hiking', '登山', Icons.terrain),
+  camping('camping', '露營', Icons.cabin_outlined),
+  boardGames('board_games', '桌遊', Icons.casino_outlined),
+  badminton('badminton', '羽球', Icons.sports_tennis),
+  cycling('cycling', '單車', Icons.directions_bike_outlined),
+  running('running', '跑步', Icons.directions_run),
+  exhibitions('exhibitions', '看展', Icons.museum_outlined),
+  music('music', '音樂', Icons.music_note_outlined),
+  food('food', '美食', Icons.restaurant_outlined),
+  travel('travel', '旅遊', Icons.travel_explore_outlined),
+  movies('movies', '電影', Icons.movie_outlined),
+  photography('photography', '攝影', Icons.photo_camera_outlined);
+
+  const InterestTag(this.value, this.label, this.icon);
+  final String value;
+  final String label;
+  final IconData icon;
+
+  static InterestTag? fromValue(String? value) {
+    for (final tag in InterestTag.values) {
+      if (tag.value == value) return tag;
+    }
+    return null;
+  }
+}
+
 /// 一场活动(近三个月内、指定县市)。
 class Activity {
   const Activity({
@@ -184,6 +230,32 @@ class RecruitmentMember {
   bool get isRejected => status == MemberStatus.rejected;
 }
 
+/// Lifecycle of a recruitment. Terminal records remain available in history.
+enum RecruitmentStatus {
+  recruiting,
+  confirmed,
+  completed,
+  failed;
+
+  static RecruitmentStatus fromText(String? value) => switch (value) {
+    'confirmed' => RecruitmentStatus.confirmed,
+    'completed' => RecruitmentStatus.completed,
+    'failed' => RecruitmentStatus.failed,
+    _ => RecruitmentStatus.recruiting,
+  };
+
+  bool get isActive =>
+      this == RecruitmentStatus.recruiting ||
+      this == RecruitmentStatus.confirmed;
+
+  String get label => switch (this) {
+    RecruitmentStatus.recruiting => '招募中',
+    RecruitmentStatus.confirmed => '已成團',
+    RecruitmentStatus.completed => '已完成',
+    RecruitmentStatus.failed => '已失敗',
+  };
+}
+
 /// 招募貼文(討論版):標題、內容、人數、性別、花費、集合資訊。
 ///
 /// 名額在申請時就鎖住(待審核也算),發起者不需自行心算人數。
@@ -206,6 +278,9 @@ class RecruitmentPost {
     this.meetingPoint = '',
     this.meetingTime,
     this.contactInfo = '',
+    this.coverPath,
+    this.coverUrl,
+    this.status = RecruitmentStatus.recruiting,
     List<RecruitmentMember>? members,
   }) : members = members ?? <RecruitmentMember>[];
 
@@ -234,6 +309,12 @@ class RecruitmentPost {
 
   /// 聯絡方式,例如 LINE ID、電話。
   final String contactInfo;
+
+  /// 招募封面。以固定 16:9 比例裁切後上傳，供列表卡片顯示。
+  final String? coverPath;
+  final String? coverUrl;
+
+  final RecruitmentStatus status;
 
   /// 所有成員紀錄(含被拒絕者,發起者需要看到完整歷程)。
   final List<RecruitmentMember> members;
@@ -292,6 +373,10 @@ class RecruitmentPost {
   /// 是否有任何集合資訊可顯示。
   bool get hasMeetingInfo =>
       meetingPoint.isNotEmpty || meetingTime != null || contactInfo.isNotEmpty;
+
+  bool get isRecruiting => status == RecruitmentStatus.recruiting;
+  bool get isConfirmed => status == RecruitmentStatus.confirmed;
+  bool get isHistorical => !status.isActive;
 }
 
 /// 预约来源:自己发起的招募 或 加入他人的招募。
@@ -392,23 +477,46 @@ class UserProfile {
     required this.nickname,
     required this.bio,
     int avatarColorValue = defaultAvatarColor,
+    this.gender = ProfileGender.undisclosed,
+    this.birthDate,
+    Iterable<InterestTag> interests = const <InterestTag>[],
     this.avatarUrl,
     this.avatarPath,
     List<ProfilePhoto>? photos,
   }) : avatarColorValue = isValidAvatarColor(avatarColorValue)
            ? avatarColorValue
            : defaultAvatarColor,
-       photos = photos ?? <ProfilePhoto>[];
+       photos = photos ?? <ProfilePhoto>[],
+       interests = interests.toSet();
 
   String nickname;
   String bio;
   int avatarColorValue; // 未設頭像時,以色塊 + 暱稱首字代替
+  ProfileGender gender;
+  DateTime? birthDate;
+  Set<InterestTag> interests;
   String? avatarUrl; // 頭像公開網址(有值就顯示圖片)
   String? avatarPath; // 頭像在 Storage 的路徑(更換/刪除時需要)
   final List<ProfilePhoto> photos; // 照片:emoji 佔位或實際圖片檔
 
   /// 是否已設定頭像圖片。
   bool get hasAvatar => avatarUrl != null && avatarUrl!.isNotEmpty;
+
+  /// 註冊資料完成門檻：公開身份、生日與頭像。
+  bool get isComplete =>
+      gender != ProfileGender.undisclosed && birthDate != null && hasAvatar;
+
+  int? get age {
+    final date = birthDate;
+    if (date == null) return null;
+    final today = DateTime.now();
+    var years = today.year - date.year;
+    if (today.month < date.month ||
+        (today.month == date.month && today.day < date.day)) {
+      years--;
+    }
+    return years < 0 ? null : years;
+  }
 }
 
 /// Profile information that can be viewed by other recruitment members.
@@ -418,6 +526,9 @@ class PublicProfile {
     required this.nickname,
     required this.bio,
     required this.avatarColorValue,
+    this.gender = ProfileGender.undisclosed,
+    this.birthDate,
+    this.interests = const <InterestTag>{},
     this.avatarUrl,
     this.photos = const <ProfilePhoto>[],
   });
@@ -426,8 +537,23 @@ class PublicProfile {
   final String nickname;
   final String bio;
   final int avatarColorValue;
+  final ProfileGender gender;
+  final DateTime? birthDate;
+  final Set<InterestTag> interests;
   final String? avatarUrl;
   final List<ProfilePhoto> photos;
+
+  int? get age {
+    final date = birthDate;
+    if (date == null) return null;
+    final today = DateTime.now();
+    var years = today.year - date.year;
+    if (today.month < date.month ||
+        (today.month == date.month && today.day < date.day)) {
+      years--;
+    }
+    return years < 0 ? null : years;
+  }
 }
 
 /// 台北旅遊景點(來自 travel.taipei 開放 API)。與展覽類活動分開。

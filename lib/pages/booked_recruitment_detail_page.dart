@@ -294,6 +294,27 @@ class PublicProfilePage extends StatelessWidget {
               ),
             ),
           ),
+          if (profile.gender != ProfileGender.undisclosed ||
+              profile.age != null) ...[
+            const SizedBox(height: 10),
+            Center(
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  if (profile.gender != ProfileGender.undisclosed)
+                    Chip(
+                      avatar: const Icon(Icons.person_outline, size: 16),
+                      label: Text(profile.gender.label),
+                    ),
+                  if (profile.age != null)
+                    Chip(
+                      avatar: const Icon(Icons.cake_outlined, size: 16),
+                      label: Text('${profile.age} 歲'),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -319,6 +340,30 @@ class PublicProfilePage extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 22),
+          const Text(
+            '感興趣的活動',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 10),
+          if (profile.interests.isEmpty)
+            const Text(
+              '尚未選擇興趣活動',
+              style: TextStyle(color: AppColors.textSecondary),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: profile.interests
+                  .map(
+                    (tag) => Chip(
+                      avatar: Icon(tag.icon, size: 16),
+                      label: Text(tag.label),
+                    ),
+                  )
+                  .toList(),
+            ),
           const SizedBox(height: 22),
           const Text(
             '照片牆',

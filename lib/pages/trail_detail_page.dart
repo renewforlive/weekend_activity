@@ -122,7 +122,7 @@ class TrailDetailPage extends StatelessWidget {
 
           const SizedBox(height: 24),
           SizedBox(
-            height: 50,
+            height: AppTheme.buttonHeight,
             child: ElevatedButton.icon(
               onPressed: () => _pickDateAndSchedule(context),
               icon: const Icon(Icons.event_available),

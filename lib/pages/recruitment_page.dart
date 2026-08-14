@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -34,7 +35,10 @@ class _RecruitmentPageState extends State<RecruitmentPage> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final posts = state.recruitments.where(_matchesFilters).toList();
+    final posts = state.recruitments
+        // 招募討論版只用來媒合。成團後改由「已預約」承接。
+        .where((post) => post.isRecruiting && _matchesFilters(post, state))
+        .toList();
     final mine = posts
         .where((post) => post.isHostedBy(state.currentUserId))
         .toList();
@@ -96,18 +100,12 @@ class _RecruitmentPageState extends State<RecruitmentPage> {
                   if (mine.isNotEmpty) ...[
                     const _SectionTitle('我發起的招募'),
                     const SizedBox(height: 10),
-                    for (final post in mine) ...[
-                      _PostCard(post: post),
-                      const SizedBox(height: 12),
-                    ],
+                    _RecruitmentGrid(posts: mine),
                   ],
                   if (others.isNotEmpty) ...[
                     const _SectionTitle('其他人發起的招募'),
                     const SizedBox(height: 10),
-                    for (final post in others) ...[
-                      _PostCard(post: post),
-                      const SizedBox(height: 12),
-                    ],
+                    _RecruitmentGrid(posts: others),
                   ],
                 ],
               ),
@@ -136,8 +134,20 @@ class _RecruitmentPageState extends State<RecruitmentPage> {
     );
   }
 
-  bool _matchesFilters(RecruitmentPost post) {
+  bool _matchesFilters(RecruitmentPost post, AppState state) {
     if (_city != '全部縣市' && post.city != _city) return false;
+    // 發起人始終可管理自己的貼文；其他招募則依帳號性別過濾。
+    if (!post.isHostedBy(state.currentUserId)) {
+      final profileGender = state.profile.gender;
+      if (profileGender == ProfileGender.male &&
+          post.genderPref == GenderPref.female) {
+        return false;
+      }
+      if (profileGender == ProfileGender.female &&
+          post.genderPref == GenderPref.male) {
+        return false;
+      }
+    }
     final date = post.activityDate;
     if (date == null) {
       return _dateFilter == _DateFilter.all && _customDateRange == null;
@@ -176,6 +186,36 @@ class _RecruitmentPageState extends State<RecruitmentPage> {
 
   Future<void> _pickDateRange() async {
     final now = DateTime.now();
+    if (kIsWeb) {
+      // The standard range picker becomes a two-month full-screen sheet at
+      // the web app's compact width, which overflows its phone-like frame.
+      // Use two compact pickers instead while preserving range selection.
+      final start = await showDatePicker(
+        context: context,
+        initialDate: _customDateRange?.start ?? now,
+        firstDate: DateTime(2020),
+        lastDate: DateTime(now.year + 2, 12, 31),
+        helpText: '選擇開始日期',
+        confirmText: '下一步',
+      );
+      if (start == null || !mounted) return;
+      final end = await showDatePicker(
+        context: context,
+        initialDate: _customDateRange?.end.isBefore(start) ?? true
+            ? start
+            : _customDateRange!.end,
+        firstDate: start,
+        lastDate: DateTime(now.year + 2, 12, 31),
+        helpText: '選擇結束日期',
+        confirmText: '套用篩選',
+      );
+      if (end == null || !mounted) return;
+      setState(() {
+        _customDateRange = DateTimeRange(start: start, end: end);
+        _dateFilter = _DateFilter.all;
+      });
+      return;
+    }
     final picked = await showDateRangePicker(
       context: context,
       initialDateRange: _customDateRange,
@@ -253,23 +293,19 @@ class _FilterBar extends StatelessWidget {
             for (final filter in _DateFilter.values)
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(_dateFilterLabel(filter)),
+                child: _DateFilterChip(
+                  label: _dateFilterLabel(filter),
                   selected: dateRange == null && dateFilter == filter,
-                  onSelected: (_) => onDateChanged(filter),
+                  onTap: () => onDateChanged(filter),
                 ),
               ),
-            InputChip(
-              avatar: const Icon(Icons.date_range_outlined, size: 18),
-              label: Text(
-                dateRange == null
-                    ? _rangeLabel(null)
-                    : '✓ ${_rangeLabel(dateRange)}',
-              ),
+            _CustomDateRangeChip(
+              label: dateRange == null
+                  ? _rangeLabel(null)
+                  : _rangeLabel(dateRange),
               selected: dateRange != null,
-              showCheckmark: false,
-              onPressed: onPickDateRange,
-              onDeleted: dateRange == null ? null : onClearDateRange,
+              onTap: onPickDateRange,
+              onClear: dateRange == null ? null : onClearDateRange,
             ),
           ],
         ),
@@ -290,11 +326,270 @@ class _FilterBar extends StatelessWidget {
   }
 }
 
+/// Avoid ChoiceChip's Safari CanvasKit text-width issue, which can render only
+/// the first Chinese character inside a selectable chip.
+class _DateFilterChip extends StatelessWidget {
+  const _DateFilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.primary : AppColors.primaryDark;
+    return Material(
+      color: selected
+          ? AppColors.primary.withValues(alpha: .18)
+          : AppColors.soft,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                Icon(Icons.check, size: 16, color: color),
+                const SizedBox(width: 6),
+              ],
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.visible,
+                style: TextStyle(color: color, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomDateRangeChip extends StatelessWidget {
+  const _CustomDateRangeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.onClear,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? AppColors.primary : AppColors.primaryDark;
+    return Material(
+      color: selected
+          ? AppColors.primary.withValues(alpha: .18)
+          : AppColors.soft,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.date_range_outlined, size: 18, color: color),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.visible,
+                style: TextStyle(color: color, fontWeight: FontWeight.w700),
+              ),
+              if (onClear != null) ...[
+                const SizedBox(width: 5),
+                InkResponse(
+                  onTap: onClear,
+                  radius: 16,
+                  child: Icon(Icons.close, size: 18, color: color),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 發起招募。未登入時先引導登入,登入成功才開啟編輯表單。
 Future<void> _startRecruitment(BuildContext context) async {
   if (!await requireSignIn(context)) return;
   if (!context.mounted) return;
   showRecruitmentEditor(context);
+}
+
+/// Feed cards intentionally expose only the decision-critical details. The
+/// complete post, member list and actions are available from the detail page.
+class _RecruitmentGrid extends StatelessWidget {
+  const _RecruitmentGrid({required this.posts});
+  final List<RecruitmentPost> posts;
+
+  @override
+  Widget build(BuildContext context) => GridView.builder(
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 2,
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: .74,
+    ),
+    itemCount: posts.length,
+    itemBuilder: (context, index) =>
+        _RecruitmentPreviewCard(post: posts[index]),
+  );
+}
+
+class _RecruitmentPreviewCard extends StatelessWidget {
+  const _RecruitmentPreviewCard({required this.post});
+  final RecruitmentPost post;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => RecruitmentDetailPage(post: post),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: post.coverUrl == null
+                ? const ColoredBox(
+                    color: AppColors.soft,
+                    child: Center(
+                      child: Icon(
+                        Icons.groups_2_outlined,
+                        size: 34,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                  )
+                : Image.network(
+                    post.coverUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const ColoredBox(
+                      color: AppColors.soft,
+                      child: Center(
+                        child: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    post.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.3,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const Spacer(),
+                  _PreviewInfo(
+                    icon: Icons.group_outlined,
+                    text: AppStrings.headcountLabel(
+                      post.joinedCount,
+                      post.headcount,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  _PreviewInfo(
+                    icon: Icons.place_outlined,
+                    text: post.activityPlace.isNotEmpty
+                        ? '${post.city}・${post.activityPlace}'
+                        : post.city,
+                  ),
+                  const SizedBox(height: 5),
+                  _PreviewInfo(
+                    icon: Icons.calendar_today_outlined,
+                    text: post.activityDate == null
+                        ? '日期待確認'
+                        : AppDate.monthDayWeek(post.activityDate!),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _PreviewInfo extends StatelessWidget {
+  const _PreviewInfo({required this.icon, required this.text});
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icon, size: 14, color: AppColors.textSecondary),
+      const SizedBox(width: 5),
+      Expanded(
+        child: Text(
+          text.isEmpty ? '地點待確認' : text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+        ),
+      ),
+    ],
+  );
+}
+
+/// Full recruitment details and participation controls.
+class RecruitmentDetailPage extends StatelessWidget {
+  const RecruitmentDetailPage({super.key, required this.post});
+  final RecruitmentPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    final posts = context.watch<AppState>().recruitments;
+    final matching = posts.where((item) => item.id == post.id);
+    final current = matching.isEmpty ? post : matching.first;
+    return Scaffold(
+      appBar: AppBar(title: const Text('招募詳情')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: _PostCard(post: current),
+      ),
+    );
+  }
 }
 
 class _PostCard extends StatelessWidget {
@@ -310,77 +605,103 @@ class _PostCard extends StatelessWidget {
     final canSeeMeeting = post.canSeeMeetingInfo(uid);
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _Header(post: post, hosted: hosted),
-            const SizedBox(height: 12),
-            Text(
-              post.title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (post.coverUrl != null)
+            AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Image.network(
+                post.coverUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const ColoredBox(
+                  color: AppColors.soft,
+                  child: Center(
+                    child: Icon(
+                      Icons.image_not_supported_outlined,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              post.content,
-              style: const TextStyle(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Tag(
-                  icon: Icons.group,
-                  text: AppStrings.headcountLabel(
-                    post.joinedCount,
-                    post.headcount,
+                _Header(post: post, hosted: hosted),
+                const SizedBox(height: 12),
+                Text(
+                  post.title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                _Tag(
-                  icon: Icons.wc,
-                  text: AppStrings.genderLabel(post.genderPref),
-                ),
-                _Tag(
-                  icon: Icons.payments,
-                  text: AppStrings.costLabel(post.cost),
-                ),
-                if (post.city.isNotEmpty)
-                  _Tag(icon: Icons.location_city_outlined, text: post.city),
-                if (post.activityPlace.isNotEmpty)
-                  _Tag(icon: Icons.place_outlined, text: post.activityPlace),
-                if (post.activityDate != null)
-                  _Tag(
-                    icon: Icons.calendar_today_outlined,
-                    text: AppDate.monthDayWeek(post.activityDate!),
+                const SizedBox(height: 6),
+                Text(
+                  post.content,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                    height: 1.5,
                   ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _Tag(
+                      icon: Icons.group,
+                      text: AppStrings.headcountLabel(
+                        post.joinedCount,
+                        post.headcount,
+                      ),
+                    ),
+                    _Tag(
+                      icon: Icons.wc,
+                      text: AppStrings.genderLabel(post.genderPref),
+                    ),
+                    _Tag(
+                      icon: Icons.payments,
+                      text: AppStrings.costLabel(post.cost),
+                    ),
+                    if (post.city.isNotEmpty)
+                      _Tag(icon: Icons.location_city_outlined, text: post.city),
+                    if (post.activityPlace.isNotEmpty)
+                      _Tag(
+                        icon: Icons.place_outlined,
+                        text: post.activityPlace,
+                      ),
+                    if (post.activityDate != null)
+                      _Tag(
+                        icon: Icons.calendar_today_outlined,
+                        text: AppDate.monthDayWeek(post.activityDate!),
+                      ),
+                  ],
+                ),
+
+                // 集合資訊:只有發起者與已核准成員看得到。
+                if (canSeeMeeting && post.hasMeetingInfo) ...[
+                  const SizedBox(height: 12),
+                  _MeetingInfo(post: post),
+                ],
+
+                const SizedBox(height: 14),
+
+                // 底部依身分切換。
+                if (hosted)
+                  _HostControls(post: post)
+                else
+                  _JoinControls(post: post, membership: membership),
               ],
             ),
-
-            // 集合資訊:只有發起者與已核准成員看得到。
-            if (canSeeMeeting && post.hasMeetingInfo) ...[
-              const SizedBox(height: 12),
-              _MeetingInfo(post: post),
-            ],
-
-            const SizedBox(height: 14),
-
-            // 底部依身分切換。
-            if (hosted)
-              _HostControls(post: post)
-            else
-              _JoinControls(post: post, membership: membership),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -579,11 +900,121 @@ class _HostControls extends StatelessWidget {
             ],
           ],
         ),
+        if (post.isRecruiting) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _confirmStatus(
+                    context,
+                    title: '確定成團',
+                    message: '確定後將關閉新的加入申請，成員無法退出，且僅能修改聯繫方式。',
+                    action: () =>
+                        context.read<AppState>().confirmRecruitment(post),
+                    color: AppColors.primary,
+                  ),
+                  icon: const Icon(Icons.groups_2_outlined, size: 18),
+                  label: const Text('確定成團'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _confirmStatus(
+                    context,
+                    title: '放棄招募',
+                    message: '此招募將結束並移至歷史紀錄，已加入的成員會收到通知。',
+                    action: () =>
+                        context.read<AppState>().abandonRecruitment(post),
+                    color: AppColors.danger,
+                  ),
+                  icon: const Icon(Icons.cancel_outlined, size: 18),
+                  label: const Text('放棄招募'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ] else if (post.isConfirmed) ...[
+          const SizedBox(height: 10),
+          const _StatusBanner(
+            icon: Icons.verified_outlined,
+            text: '已成團，活動結束後將自動歸檔。',
+            color: AppColors.primary,
+          ),
+        ],
         const SizedBox(height: 8),
         _MemberList(post: post),
       ],
     );
   }
+
+  Future<void> _confirmStatus(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required Future<bool> Function() action,
+    required Color color,
+  }) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(AppStrings.cancel),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: color),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(title),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await action();
+  }
+}
+
+class _StatusBanner extends StatelessWidget {
+  const _StatusBanner({
+    required this.icon,
+    required this.text,
+    required this.color,
+  });
+  final IconData icon;
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: .1),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// 成員名單(發起者視角):待審核可同意/拒絕,已加入者分區顯示。
@@ -775,13 +1206,19 @@ class _JoinControls extends StatelessWidget {
             ),
           ],
           const Spacer(),
-          TextButton(
-            onPressed: () => _confirmLeave(context, state),
-            child: Text(
-              AppStrings.leaveGroup,
-              style: const TextStyle(color: AppColors.danger),
+          if (post.isConfirmed)
+            const Text(
+              '已成團，無法退出',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            )
+          else
+            TextButton(
+              onPressed: () => _confirmLeave(context, state),
+              child: Text(
+                AppStrings.leaveGroup,
+                style: const TextStyle(color: AppColors.danger),
+              ),
             ),
-          ),
         ],
       );
     }
@@ -820,6 +1257,13 @@ class _JoinControls extends StatelessWidget {
     }
 
     // 未加入:申請鈕(滿了就停用)。
+    if (post.isConfirmed) {
+      return const _StatusBanner(
+        icon: Icons.lock_outline,
+        text: '此揪團已成團，不再開放加入。',
+        color: AppColors.primaryDark,
+      );
+    }
     final full = post.isFull;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

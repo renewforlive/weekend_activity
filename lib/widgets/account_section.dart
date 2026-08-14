@@ -96,7 +96,7 @@ class AccountSection extends StatelessWidget {
                   icon: const Icon(Icons.login, size: 19),
                   label: Text(AuthStrings.signInAction),
                   style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(44),
+                    minimumSize: const Size.fromHeight(AppTheme.buttonHeight),
                   ),
                 ),
             ],

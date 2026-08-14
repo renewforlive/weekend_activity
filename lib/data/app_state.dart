@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -80,9 +81,12 @@ class AppState extends ChangeNotifier {
       _recruitments.where((post) => post.isJoinedBy(userId)).length;
 
   bool _syncing = false;
+  bool _profileLoaded = false;
   String? _syncError;
   bool get isSyncing => _syncing;
   String? get syncError => _syncError;
+  bool get requiresProfileCompletion =>
+      isAuthenticated && _profileLoaded && !_profile.isComplete;
 
   /// 錯誤訊息顯示過後清除,避免重複彈出。
   void clearSyncError() {
@@ -95,6 +99,7 @@ class AppState extends ChangeNotifier {
   /// This prevents the next account from briefly seeing the deleted account's data.
   void clearAccountData() {
     _profile = UserProfile(nickname: '我', bio: '');
+    _profileLoaded = false;
     _participated = false;
     _schedule.clear();
     _recruitments.clear();
@@ -118,7 +123,10 @@ class AppState extends ChangeNotifier {
     // 個人資料(後端尚無紀錄時會自動補建)
     try {
       final profile = await _profileRepo.fetchOrCreateProfile();
-      if (profile != null) _profile = profile;
+      if (profile != null) {
+        _profile = profile;
+        _profileLoaded = true;
+      }
     } catch (e) {
       errors.add('個人資料');
       debugPrint('載入個人資料失敗: $e');
@@ -455,8 +463,15 @@ class AppState extends ChangeNotifier {
     final uid = currentUserId;
     if (uid == null) return;
 
+    // Calendar entries exist only for groups the host has explicitly
+    // confirmed. A failed, completed, or still-recruiting post must remove
+    // its previously created recruitment schedule and reminder.
     final confirmed = _recruitments
-        .where((post) => post.isHostedBy(uid) || post.isApprovedFor(uid))
+        .where(
+          (post) =>
+              post.isConfirmed &&
+              (post.isHostedBy(uid) || post.isApprovedFor(uid)),
+        )
         .toList();
     final expectedActivityIds = {
       for (final post in confirmed) 'recruitment_${post.id}',
@@ -558,7 +573,13 @@ class AppState extends ChangeNotifier {
   // ===== 招募(讨论版)=====
   final List<RecruitmentPost> _recruitments = [];
   List<RecruitmentPost> get recruitments => List.unmodifiable(
-    _recruitments..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+    _recruitments.where((post) => post.status.isActive).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
+  );
+
+  List<RecruitmentPost> get recruitmentHistory => List.unmodifiable(
+    _recruitments.where((post) => post.isHistorical).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
   );
 
   int _hostedCount = 0;
@@ -578,8 +599,17 @@ class AppState extends ChangeNotifier {
     String meetingPoint = '',
     DateTime? meetingTime,
     String contactInfo = '',
+    Uint8List? coverBytes,
+    String? coverFilePath,
   }) async {
     try {
+      String? coverPath;
+      if (coverBytes != null && coverFilePath != null) {
+        coverPath = await _recruitmentRepo.uploadCover(
+          bytes: coverBytes,
+          filePath: coverFilePath,
+        );
+      }
       await _recruitmentRepo.create(
         title: title,
         content: content,
@@ -593,6 +623,7 @@ class AppState extends ChangeNotifier {
         meetingPoint: meetingPoint,
         meetingTime: meetingTime,
         contactInfo: contactInfo,
+        coverPath: coverPath,
       );
       await loadRemoteData();
     } catch (e) {
@@ -615,6 +646,9 @@ class AppState extends ChangeNotifier {
     String meetingPoint = '',
     DateTime? meetingTime,
     String contactInfo = '',
+    Uint8List? coverBytes,
+    String? coverFilePath,
+    String? oldCoverPath,
   }) async {
     final result = await _recruitmentRepo.update(
       recruitmentId: recruitmentId,
@@ -630,6 +664,23 @@ class AppState extends ChangeNotifier {
       meetingTime: meetingTime,
       contactInfo: contactInfo,
     );
+
+    if (result == HostActionResult.ok &&
+        coverBytes != null &&
+        coverFilePath != null) {
+      try {
+        final coverPath = await _recruitmentRepo.uploadCover(
+          bytes: coverBytes,
+          filePath: coverFilePath,
+        );
+        await _recruitmentRepo.updateCover(recruitmentId, coverPath);
+        await _recruitmentRepo.removeCover(oldCoverPath);
+      } catch (_) {
+        _syncError = '招募內容已更新，但封面上傳失敗，請稍後再試。';
+        await loadRemoteData();
+        return false;
+      }
+    }
 
     switch (result) {
       case HostActionResult.ok:
@@ -689,8 +740,36 @@ class AppState extends ChangeNotifier {
   Future<void> leaveRecruitment(RecruitmentPost post) async {
     final uid = currentUserId;
     if (uid == null) return;
-    await _recruitmentRepo.leave(post.id);
-    await loadRemoteData();
+    final result = await _recruitmentRepo.leave(post.id);
+    if (result == HostActionResult.ok) {
+      await loadRemoteData();
+      return;
+    }
+    _syncError = '已成團的招募無法退出。';
+    notifyListeners();
+  }
+
+  Future<bool> confirmRecruitment(RecruitmentPost post) async =>
+      _setRecruitmentStatus(post, RecruitmentStatus.confirmed);
+
+  Future<bool> abandonRecruitment(RecruitmentPost post) async =>
+      _setRecruitmentStatus(post, RecruitmentStatus.failed);
+
+  Future<bool> _setRecruitmentStatus(
+    RecruitmentPost post,
+    RecruitmentStatus status,
+  ) async {
+    final result = await _recruitmentRepo.setRecruitmentStatus(
+      recruitmentId: post.id,
+      status: status,
+    );
+    if (result == HostActionResult.ok) {
+      await loadRemoteData();
+      return true;
+    }
+    _syncError = '無法更新招募狀態，請稍後再試。';
+    notifyListeners();
+    return false;
   }
 
   /// 發起者同意申請者加入。
@@ -749,14 +828,14 @@ class AppState extends ChangeNotifier {
     for (final r in _recruitments) {
       final hosted = r.isHostedBy(uid);
       final approved = r.isApprovedFor(uid);
-      if (!hosted && !approved) continue;
+      if (!r.isConfirmed || (!hosted && !approved)) continue;
       _bookings.add(
         Booking(
           id: 'book_rec_${r.id}',
           title: r.title,
-          date: r.relatedActivity?.date,
+          date: r.relatedActivity?.date ?? r.activityDate,
           source: hosted ? BookingSource.hosted : BookingSource.joined,
-          city: r.relatedActivity?.city,
+          city: r.relatedActivity?.city ?? r.city,
           cost: r.cost,
           recruitmentId: r.id,
         ),
@@ -783,6 +862,9 @@ class AppState extends ChangeNotifier {
     String? nickname,
     String? bio,
     int? avatarColorValue,
+    ProfileGender? gender,
+    DateTime? birthDate,
+    Set<InterestTag>? interests,
   }) async {
     if (nickname != null && nickname.trim().isNotEmpty) {
       _profile.nickname = nickname.trim();
@@ -798,16 +880,22 @@ class AppState extends ChangeNotifier {
     if (validAvatarColor != null) {
       _profile.avatarColorValue = validAvatarColor;
     }
+    if (gender != null) _profile.gender = gender;
+    if (birthDate != null) _profile.birthDate = birthDate;
+    if (interests != null) _profile.interests = interests.toSet();
     notifyListeners();
     await _profileRepo.updateProfile(
       nickname: nickname,
       bio: bio,
       avatarColorValue: validAvatarColor,
+      gender: gender,
+      birthDate: birthDate,
+      interests: interests,
     );
   }
 
   /// 上傳頭像。上傳中先以本機檔案顯示,完成後換成遠端網址。
-  Future<void> uploadAvatar(String path) async {
+  Future<void> uploadAvatar(String path, {Uint8List? bytes}) async {
     if (path.trim().isEmpty) return;
 
     final oldPath = _profile.avatarPath;
@@ -820,7 +908,11 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _profileRepo.uploadAvatar(path, oldPath: oldPath);
+      final result = await _profileRepo.uploadAvatar(
+        path,
+        oldPath: oldPath,
+        bytes: bytes,
+      );
       if (result != null) {
         _profile.avatarUrl = result.url;
         _profile.avatarPath = result.path;
@@ -862,7 +954,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// 上傳實際照片(來自相機或相簿)。上傳中先以本機檔案顯示。
-  Future<void> addPhotoFile(String path) async {
+  Future<void> addPhotoFile(String path, {Uint8List? bytes}) async {
     if (path.trim().isEmpty) return;
 
     // 樂觀更新:先放本機檔案讓畫面立即有反應。
@@ -871,7 +963,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final uploaded = await _profileRepo.uploadPhoto(path);
+      final uploaded = await _profileRepo.uploadPhoto(path, bytes: bytes);
       final idx = _profile.photos.indexOf(placeholder);
       if (uploaded != null) {
         if (idx >= 0) {
@@ -892,7 +984,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> removePhoto(int index) async {
     if (index < 0 || index >= _profile.photos.length) return;
-    final photo = _profile.photos.removeAt(index);
+    final photo = _profile.photos[index];
+    _profile.photos.removeAt(index);
     notifyListeners();
     await _profileRepo.deletePhoto(photo);
   }
