@@ -23,6 +23,19 @@ import 'mock_data.dart';
 /// 活動頁的類別:景點(全台,本地資料)/ 展覽(文化部 API)。
 enum ActivitySection { attraction, exhibition, trail, camping }
 
+/// 將觀光署的細分類整理為使用者容易理解的探索分類。
+enum AttractionFilter {
+  all,
+  nature,
+  park,
+  culture,
+  art,
+  religion,
+  shopping,
+  outdoor,
+  recreation,
+}
+
 /// 全 App 集中狀態:活動、行程、招募、預約、個人資料。
 /// 無後端,資料存於記憶體(重啟即重置),提醒透過 NotificationService 排程。
 class AppState extends ChangeNotifier {
@@ -209,18 +222,50 @@ class AppState extends ChangeNotifier {
   // ===== 景點(全台,本地 asset 資料,依縣市顯示)=====
   // 本地資料一次全載入並快取,依 selectedCity 過濾;分頁在前端做(避免一次渲染數百張卡)。
   List<TravelSpot> _citySpots = [];
+  AttractionFilter _spotFilter = AttractionFilter.all;
   int _spotVisible = 0; // 目前顯示筆數(前端分頁)
   static const int _spotPageSize = 20;
   bool _loadingSpots = false;
   String? _spotsError;
 
-  /// 目前縣市、已顯示的景點(前端分頁)。
+  AttractionFilter get spotFilter => _spotFilter;
+
+  List<TravelSpot> get _filteredCitySpots => _spotFilter == AttractionFilter.all
+      ? _citySpots
+      : _citySpots.where((spot) => _matchesSpotFilter(spot)).toList();
+
+  /// 目前縣市與類別、已顯示的景點(前端分頁)。
   List<TravelSpot> get travelSpots =>
-      List.unmodifiable(_citySpots.take(_spotVisible));
+      List.unmodifiable(_filteredCitySpots.take(_spotVisible));
   bool get isLoadingSpots => _loadingSpots;
   bool get isLoadingMoreSpots => false;
   String? get spotsError => _spotsError;
-  bool get hasMoreSpots => _spotVisible < _citySpots.length;
+  bool get hasMoreSpots => _spotVisible < _filteredCitySpots.length;
+
+  static const Map<AttractionFilter, Set<int>> _spotFilterClasses = {
+    AttractionFilter.nature: {2, 7, 8, 10, 11, 16, 17, 18, 24, 26},
+    AttractionFilter.park: {15, 19},
+    AttractionFilter.culture: {1, 3, 21, 22},
+    AttractionFilter.art: {5, 25},
+    AttractionFilter.religion: {4},
+    AttractionFilter.shopping: {6},
+    AttractionFilter.outdoor: {9, 13},
+    AttractionFilter.recreation: {12, 20, 27},
+  };
+
+  bool _matchesSpotFilter(TravelSpot spot) {
+    final classes = _spotFilterClasses[_spotFilter];
+    return classes != null && spot.attractionClasses.any(classes.contains);
+  }
+
+  void selectSpotFilter(AttractionFilter filter) {
+    if (_spotFilter == filter) return;
+    _spotFilter = filter;
+    _spotVisible = _filteredCitySpots.length < _spotPageSize
+        ? _filteredCitySpots.length
+        : _spotPageSize;
+    notifyListeners();
+  }
 
   /// 載入目前縣市的景點(從本地 asset)。
   Future<void> loadCitySpots() async {
@@ -229,8 +274,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       _citySpots = await _attractionAsset.byCity(_selectedCity);
-      _spotVisible = _citySpots.length < _spotPageSize
-          ? _citySpots.length
+      _spotVisible = _filteredCitySpots.length < _spotPageSize
+          ? _filteredCitySpots.length
           : _spotPageSize;
     } catch (e) {
       _spotsError = '無法載入景點資料,請稍後再試。';
@@ -246,7 +291,9 @@ class AppState extends ChangeNotifier {
   Future<void> loadMoreTravelSpots() async {
     if (!hasMoreSpots) return;
     final next = _spotVisible + _spotPageSize;
-    _spotVisible = next < _citySpots.length ? next : _citySpots.length;
+    _spotVisible = next < _filteredCitySpots.length
+        ? next
+        : _filteredCitySpots.length;
     notifyListeners();
   }
 

@@ -150,7 +150,7 @@ class AppStrings {
   // ===== 招募頁 =====
   static String get recruitmentTitle => _pick('招募討論版', 'Recruitment board');
   static String get recruitmentEmpty => _pick(
-    '還沒有招募貼文,\n點右下角發起第一則揪團吧!',
+    '還沒有招募貼文,\n點右上角發起第一則揪團吧!',
     'No posts yet.\nTap the button to start the first one!',
   );
   static String headcountLabel(int joined, int total) =>

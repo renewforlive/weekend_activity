@@ -99,6 +99,13 @@ class AttractionAssetService {
       address: fullAddress,
       images: images,
       url: (json['WebsiteURL'] as String?)?.trim() ?? '',
+      attractionClasses: (json['AttractionClasses'] as List?)
+              ?.map((value) => value is int
+                  ? value
+                  : int.tryParse('$value'))
+              .whereType<int>()
+              .toList() ??
+          const <int>[],
     );
   }
 }

@@ -69,20 +69,13 @@ class _TravelSpotDetailPageState extends State<TravelSpotDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        spot.name,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                    _OpenBadge(isOpen: spot.isOpen),
-                  ],
+                Text(
+                  spot.name,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _InfoRow(
@@ -262,41 +255,6 @@ class _SpotActions extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _OpenBadge extends StatelessWidget {
-  const _OpenBadge({required this.isOpen});
-  final bool isOpen;
-  @override
-  Widget build(BuildContext context) {
-    final color = isOpen ? AppColors.primary : AppColors.danger;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isOpen ? Icons.check_circle : Icons.cancel,
-            size: 16,
-            color: color,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            isOpen ? AppStrings.open : AppStrings.closed,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

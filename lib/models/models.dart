@@ -567,6 +567,7 @@ class TravelSpot {
     required this.address,
     required this.images,
     required this.url,
+    this.attractionClasses = const <int>[],
   });
 
   final int id;
@@ -577,6 +578,8 @@ class TravelSpot {
   final String address; // 地址
   final List<String> images; // 圖片網址(大圖輪播用)
   final String url; // 詳情網址(WebView 開啟)
+  /// 交通部觀光署景點類型代碼。一個景點可同時屬於多個類別。
+  final List<int> attractionClasses;
 
   bool get isOpen => openStatus == 1;
 
@@ -603,6 +606,13 @@ class TravelSpot {
       address: (json['address'] as String?)?.trim() ?? '',
       images: imgs,
       url: (json['url'] as String?)?.trim() ?? '',
+      attractionClasses: (json['attraction_classes'] as List?)
+              ?.map((value) => value is int
+                  ? value
+                  : int.tryParse('$value'))
+              .whereType<int>()
+              .toList() ??
+          const <int>[],
     );
   }
 }

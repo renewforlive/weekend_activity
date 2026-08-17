@@ -123,6 +123,7 @@ class _AttractionsList extends StatefulWidget {
 class _AttractionsListState extends State<_AttractionsList> {
   final ScrollController _scroll = ScrollController();
   String? _lastCity;
+  AttractionFilter? _lastFilter;
 
   @override
   void initState() {
@@ -137,13 +138,16 @@ class _AttractionsListState extends State<_AttractionsList> {
   }
 
   /// 換地區時把列表捲回最上方。
-  void _resetScrollIfCityChanged(String city) {
-    if (_lastCity != null && _lastCity != city && _scroll.hasClients) {
+  void _resetScrollIfFiltersChanged(AppState state) {
+    final changed = _lastCity != null &&
+        (_lastCity != state.selectedCity || _lastFilter != state.spotFilter);
+    if (changed && _scroll.hasClients) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scroll.hasClients) _scroll.jumpTo(0);
       });
     }
-    _lastCity = city;
+    _lastCity = state.selectedCity;
+    _lastFilter = state.spotFilter;
   }
 
   @override
@@ -156,32 +160,48 @@ class _AttractionsListState extends State<_AttractionsList> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    _resetScrollIfCityChanged(state.selectedCity);
+    _resetScrollIfFiltersChanged(state);
     if (state.isLoadingSpots) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (state.spotsError != null && state.travelSpots.isEmpty) {
-      return _ErrorRetry(
-        message: AppStrings.spotsError,
-        onRetry: state.loadCitySpots,
-      );
-    }
     final spots = state.travelSpots;
-    if (spots.isEmpty) {
-      return _EmptyHint(text: AppStrings.spotsEmpty);
-    }
-    return RefreshIndicator(
-      onRefresh: state.loadCitySpots,
-      child: ListView.separated(
-        controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        itemCount: spots.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, i) {
-          if (i == spots.length) return _footer(state);
-          return _SpotCard(spot: spots[i]);
-        },
-      ),
+    return Column(
+      children: [
+        _AttractionFilterBar(
+          current: state.spotFilter,
+          onChanged: state.selectSpotFilter,
+        ),
+        Expanded(
+          child: state.spotsError != null && spots.isEmpty
+              ? _ErrorRetry(
+                  message: AppStrings.spotsError,
+                  onRetry: state.loadCitySpots,
+                )
+              : spots.isEmpty
+              ? _EmptyHint(text: AppStrings.spotsEmpty)
+              : RefreshIndicator(
+                  onRefresh: state.loadCitySpots,
+                  child: GridView.builder(
+                    controller: _scroll,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          // 緊湊列表：剛好容納圖片、標題、兩行介紹與地點，
+                          // 不讓 Grid 的固定高度在卡片底部留下大片空白。
+                          childAspectRatio: .86,
+                        ),
+                    itemCount: spots.length + (state.hasMoreSpots ? 1 : 0),
+                    itemBuilder: (context, i) {
+                      if (i == spots.length) return _footer(state);
+                      return _SpotCard(spot: spots[i]);
+                    },
+                  ),
+                ),
+        ),
+      ],
     );
   }
 
@@ -204,7 +224,67 @@ class _AttractionsListState extends State<_AttractionsList> {
   }
 }
 
-/// 景點卡片:縮圖 + 名稱 + 開放狀態 + 地區,點擊進詳情頁。
+class _AttractionFilterBar extends StatelessWidget {
+  const _AttractionFilterBar({required this.current, required this.onChanged});
+  final AttractionFilter current;
+  final ValueChanged<AttractionFilter> onChanged;
+
+  static const _filters = <(AttractionFilter, String, IconData)>[
+    (AttractionFilter.all, '全部', Icons.grid_view_rounded),
+    (AttractionFilter.nature, '自然', Icons.terrain_outlined),
+    (AttractionFilter.park, '公園', Icons.park_outlined),
+    (AttractionFilter.culture, '人文', Icons.account_balance_outlined),
+    (AttractionFilter.art, '藝文', Icons.palette_outlined),
+    (AttractionFilter.religion, '宗教', Icons.temple_buddhist_outlined),
+    (AttractionFilter.shopping, '購物', Icons.storefront_outlined),
+    (AttractionFilter.outdoor, '戶外', Icons.directions_run_outlined),
+    (AttractionFilter.recreation, '遊憩', Icons.attractions_outlined),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 58,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        itemCount: _filters.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (_, index) {
+          final filter = _filters[index];
+          final selected = current == filter.$1;
+          return SizedBox(
+            width: 88,
+            child: ChoiceChip(
+              selected: selected,
+              onSelected: (_) => onChanged(filter.$1),
+              avatar: Icon(
+                filter.$3,
+                size: 16,
+                color: selected ? Colors.white : AppColors.primaryDark,
+              ),
+              label: Text(filter.$2, maxLines: 1),
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : AppColors.primaryDark,
+                fontWeight: FontWeight.w700,
+              ),
+              selectedColor: AppColors.primary,
+              backgroundColor: AppColors.surface,
+              side: BorderSide(
+                color: selected ? AppColors.primary : AppColors.soft,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// 緊湊景點卡片:縮圖、名稱、分類和地區,點擊進詳情頁。
 class _SpotCard extends StatelessWidget {
   const _SpotCard({required this.spot});
   final TravelSpot spot;
@@ -222,85 +302,68 @@ class _SpotCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (spot.images.isNotEmpty)
-              ExternalNetworkImage(
-                url: spot.images.first,
-                height: 160,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return Container(height: 160, color: AppColors.soft);
-                },
-                errorBuilder: (context, _, _) => Container(
-                  height: 160,
-                  color: AppColors.soft,
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.broken_image_outlined,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          spot.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      _MiniOpen(isOpen: spot.isOpen),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.place_outlined,
-                        size: 15,
-                        color: AppColors.textSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          [
-                            spot.distric,
-                            spot.address,
-                          ].where((s) => s.isNotEmpty).join(' · '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (spot.introduction.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+            AspectRatio(
+              aspectRatio: 16 / 10,
+              child: spot.images.isNotEmpty
+                  ? ExternalNetworkImage(
+                      url: spot.images.first,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, progress) => progress == null
+                          ? child
+                          : Container(color: AppColors.soft),
+                      errorBuilder: (_, _, _) => _imagePlaceholder(),
+                    )
+                  : _imagePlaceholder(),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(10, 9, 10, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      spot.introduction,
-                      maxLines: 2,
+                      spot.name,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.textSecondary,
-                        height: 1.4,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    ),
+                    if (spot.introduction.isNotEmpty) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        spot.introduction,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          height: 1.35,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
+                    ],
+                    const Spacer(),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.place_outlined,
+                          size: 14,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            spot.distric,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ],
+                ),
               ),
             ),
           ],
@@ -308,30 +371,12 @@ class _SpotCard extends StatelessWidget {
       ),
     );
   }
-}
 
-class _MiniOpen extends StatelessWidget {
-  const _MiniOpen({required this.isOpen});
-  final bool isOpen;
-  @override
-  Widget build(BuildContext context) {
-    final color = isOpen ? AppColors.primary : AppColors.danger;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        isOpen ? AppStrings.open : AppStrings.closed,
-        style: TextStyle(
-          fontSize: 11,
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
+  Widget _imagePlaceholder() => Container(
+        color: AppColors.soft,
+        alignment: Alignment.center,
+        child: const Icon(Icons.landscape_outlined, color: AppColors.textSecondary),
+      );
 }
 
 class _ErrorRetry extends StatelessWidget {
