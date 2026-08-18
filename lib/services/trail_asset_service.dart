@@ -6,10 +6,13 @@ import '../models/hiking_trail.dart';
 
 /// 從本地 asset 載入登山步道(林務局全國步道資料)。
 ///
-/// 資料檔:assets/data/trails.json
+/// 資料檔:assets/data/trails.json + 台北市列管步道開放資料。
 /// 縣市名在解析時已正規化(臺→台),可直接和 taiwanCities 比對。
 class TrailAssetService {
-  static const _assetPath = 'assets/data/trails.json';
+  static const _assetPaths = [
+    'assets/data/trails.json',
+    'assets/data/taipei_managed_trails.json',
+  ];
 
   List<HikingTrail>? _cache;
 
@@ -17,16 +20,18 @@ class TrailAssetService {
   Future<List<HikingTrail>> loadAll() async {
     if (_cache != null) return _cache!;
 
-    final raw = await rootBundle.loadString(_assetPath);
-    final decoded = jsonDecode(raw);
     final trails = <HikingTrail>[];
 
-    if (decoded is List) {
-      for (final item in decoded) {
-        if (item is Map<String, dynamic>) {
-          final trail = HikingTrail.fromJson(item);
-          // 沒有名稱的資料無法顯示,略過。
-          if (trail.name.isNotEmpty) trails.add(trail);
+    for (final path in _assetPaths) {
+      final raw = await rootBundle.loadString(path);
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        for (final item in decoded) {
+          if (item is Map<String, dynamic>) {
+            final trail = HikingTrail.fromJson(item);
+            // 沒有名稱的資料無法顯示,略過。
+            if (trail.name.isNotEmpty) trails.add(trail);
+          }
         }
       }
     }

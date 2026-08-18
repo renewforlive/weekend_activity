@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/app_state.dart';
 import '../l10n/app_strings.dart';
 import '../models/models.dart';
+import '../models/camping_site.dart';
 import '../theme/app_theme.dart';
 import '../utils/date_format.dart';
 import '../widgets/external_network_image.dart';
@@ -11,6 +12,9 @@ import 'travel_spot_detail_page.dart';
 import 'activity_detail_page.dart';
 import 'trails_list.dart';
 import 'campings_list.dart';
+import 'camping_detail_page.dart';
+import 'trail_detail_page.dart';
+import 'escape_rooms_list.dart';
 
 /// 活動頁:選地區。全台縣市皆可切換景點(本地資料)/展覽(文化部)。
 class ActivitiesPage extends StatelessWidget {
@@ -18,10 +22,37 @@ class ActivitiesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('週末推薦'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ActivityExplorePage(),
+              ),
+            ),
+            icon: const Icon(Icons.explore_outlined, size: 18),
+            label: const Text('自己探索'),
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
+      body: const _WeekendRecommendationHome(),
+    );
+  }
+}
+
+/// 所有原始資料與分類篩選集中在此頁，從推薦首頁按「自己探索」才進入。
+class ActivityExplorePage extends StatelessWidget {
+  const ActivityExplorePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppStrings.activitiesTitle),
+        title: const Text('自己探索'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(108),
           child: Column(
@@ -60,7 +91,413 @@ class ActivitiesPage extends StatelessWidget {
           _ExhibitionList(activities: state.activitiesForSelectedCity),
           const TrailsList(),
           const CampingsList(),
+          const EscapeRoomsList(),
         ],
+      ),
+    );
+  }
+}
+
+/// 活動首頁：先提供少量、可直接點進去的週末提案，減少選擇疲勞。
+class _WeekendRecommendationHome extends StatefulWidget {
+  const _WeekendRecommendationHome();
+
+  @override
+  State<_WeekendRecommendationHome> createState() =>
+      _WeekendRecommendationHomeState();
+}
+
+class _WeekendRecommendationHomeState
+    extends State<_WeekendRecommendationHome> {
+  String? _loadedCity;
+
+  void _loadSupplementaryRecommendations(AppState state) {
+    if (_loadedCity == state.selectedCity) return;
+    _loadedCity = state.selectedCity;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final latest = context.read<AppState>();
+      latest.loadCityTrails();
+      latest.loadCityCampings();
+    });
+  }
+
+  T? _weeklyPick<T>(List<T> items, int salt) {
+    if (items.isEmpty) return null;
+    final now = DateTime.now();
+    final week = now.difference(DateTime(now.year, 1, 1)).inDays ~/ 7;
+    final seed = (context.read<AppState>().selectedCity.hashCode ^ week ^ salt) &
+        0x7fffffff;
+    return items[seed % items.length];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    _loadSupplementaryRecommendations(state);
+    if (state.isLoadingSpots) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final spot = _weeklyPick(
+      state.recommendedTravelSpots(AttractionFilter.all),
+      11,
+    );
+    final exhibition = _weeklyPick(state.activitiesForSelectedCity, 23);
+    final trail = _weeklyPick(state.cityTrails, 37);
+    final legalCampings = state.cityCampings
+        .where((site) => site.legality == CampingLegality.legal)
+        .toList();
+    final camping = _weeklyPick(legalCampings, 41);
+
+    return RefreshIndicator(
+      onRefresh: state.loadCitySpots,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.place, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _CityDropdown(
+                  value: state.selectedCity,
+                  cities: state.cities,
+                  onChanged: state.selectCity,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Text(
+            '${state.selectedCity}這個週末，直接去這裡吧',
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            '四種不同玩法各挑一個，減少選擇，只留下值得出發的地方。',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 20),
+          if (spot != null)
+            _RecommendationSpotCard(
+              eyebrow: '景點推薦',
+              hint: '${state.selectedCity}的週末走走',
+              spot: spot,
+              accent: const Color(0xFF3BB273),
+              fallbackAsset:
+                  'assets/images/weekend_recommendations/attraction_fallback.png',
+            ),
+          if (spot != null) const SizedBox(height: 16),
+          _WeekendActionCard(
+            eyebrow: '展覽推薦',
+            title: exhibition?.title ?? '近期展覽整理中',
+            subtitle: exhibition == null
+                ? '換個縣市看看近期藝文活動'
+                : '${AppDate.monthDayWeek(exhibition.date)} · ${exhibition.venue}',
+            icon: Icons.palette_outlined,
+            colors: const [Color(0xFF7567C7), Color(0xFF9B91DD)],
+            backgroundAsset:
+                'assets/images/weekend_recommendations/exhibition_fallback.png',
+            onTap: () {
+              if (exhibition != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => ActivityDetailPage(activity: exhibition),
+                  ),
+                );
+              } else {
+                state.selectSection(ActivitySection.exhibition);
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ActivityExplorePage(),
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _WeekendActionCard(
+            eyebrow: '登山推薦',
+            title: trail?.name ?? '找一條適合出發的步道',
+            subtitle: trail == null
+                ? '${state.selectedCity}暫無步道資料，看看附近縣市'
+                : [trail.location, trail.lengthText, trail.duration]
+                    .where((text) => text.isNotEmpty)
+                    .join(' · '),
+            icon: Icons.terrain_outlined,
+            colors: const [Color(0xFF2F8D9B), Color(0xFF64B6C4)],
+            backgroundAsset:
+                'assets/images/weekend_recommendations/trail_fallback.png',
+            onTap: () {
+              if (trail != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => TrailDetailPage(trail: trail),
+                  ),
+                );
+              } else {
+                state.selectSection(ActivitySection.trail);
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ActivityExplorePage(),
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _WeekendActionCard(
+            eyebrow: '露營推薦',
+            title: camping?.name ?? '找一處合法露營場',
+            subtitle: camping == null
+                ? '優先只推薦符合相關法規的營場'
+                : camping.displayAddress,
+            icon: Icons.cabin_outlined,
+            colors: const [Color(0xFFE88C4E), Color(0xFFF2B176)],
+            backgroundAsset:
+                'assets/images/weekend_recommendations/camping_fallback.png',
+            onTap: () {
+              if (camping != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => CampingDetailPage(site: camping),
+                  ),
+                );
+              } else {
+                state.selectSection(ActivitySection.camping);
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ActivityExplorePage(),
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ActivityExplorePage(),
+              ),
+            ),
+            icon: const Icon(Icons.explore_outlined),
+            label: const Text('都不喜歡？自己探索更多活動'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendationSpotCard extends StatelessWidget {
+  const _RecommendationSpotCard({
+    required this.eyebrow,
+    required this.hint,
+    required this.spot,
+    required this.accent,
+    required this.fallbackAsset,
+  });
+
+  final String eyebrow;
+  final String hint;
+  final TravelSpot spot;
+  final Color accent;
+  final String fallbackAsset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => TravelSpotDetailPage(spot: spot),
+          ),
+        ),
+        child: SizedBox(
+          height: 220,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (spot.images.isNotEmpty)
+                ExternalNetworkImage(
+                  url: spot.images.first,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _recommendationFallback(),
+                )
+              else
+                _recommendationFallback(),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withValues(alpha: .76)],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 14,
+                left: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    eyebrow,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 15,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      spot.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hint,
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _recommendationFallback() => Image.asset(fallbackAsset, fit: BoxFit.cover);
+}
+
+class _WeekendActionCard extends StatelessWidget {
+  const _WeekendActionCard({
+    required this.eyebrow,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.colors,
+    required this.backgroundAsset,
+    required this.onTap,
+  });
+
+  final String eyebrow;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final List<Color> colors;
+  final String backgroundAsset;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      borderRadius: BorderRadius.circular(18),
+      child: Ink(
+        height: 132,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(18)),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(backgroundAsset, fit: BoxFit.cover),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      colors.first.withValues(alpha: .88),
+                      Colors.black.withValues(alpha: .28),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  children: [
+                    Icon(icon, color: Colors.white, size: 34),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            eyebrow,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white,
+                      size: 18,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -73,22 +510,28 @@ class _SectionTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _tab(AppStrings.sectionAttraction, ActivitySection.attraction),
-        const SizedBox(width: 8),
-        _tab(AppStrings.sectionExhibition, ActivitySection.exhibition),
-        const SizedBox(width: 8),
-        _tab(AppStrings.sectionTrail, ActivitySection.trail),
-        const SizedBox(width: 8),
-        _tab(AppStrings.sectionCamping, ActivitySection.camping),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _tab(AppStrings.sectionAttraction, ActivitySection.attraction),
+          const SizedBox(width: 8),
+          _tab(AppStrings.sectionExhibition, ActivitySection.exhibition),
+          const SizedBox(width: 8),
+          _tab(AppStrings.sectionTrail, ActivitySection.trail),
+          const SizedBox(width: 8),
+          _tab(AppStrings.sectionCamping, ActivitySection.camping),
+          const SizedBox(width: 8),
+          _tab(AppStrings.sectionEscapeRoom, ActivitySection.escapeRoom),
+        ],
+      ),
     );
   }
 
   Widget _tab(String label, ActivitySection section) {
     final selected = current == section;
-    return Expanded(
+    return SizedBox(
+      width: 104,
       child: GestureDetector(
         onTap: () => onChanged(section),
         child: Container(
@@ -181,23 +624,30 @@ class _AttractionsListState extends State<_AttractionsList> {
               ? _EmptyHint(text: AppStrings.spotsEmpty)
               : RefreshIndicator(
                   onRefresh: state.loadCitySpots,
-                  child: GridView.builder(
+                  child: CustomScrollView(
                     controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          // 緊湊列表：剛好容納圖片、標題、兩行介紹與地點，
-                          // 不讓 Grid 的固定高度在卡片底部留下大片空白。
-                          childAspectRatio: .86,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    slivers: [
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                        sliver: SliverGrid(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, i) => _SpotCard(spot: spots[i]),
+                            childCount: spots.length,
+                          ),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                // 緊湊列表：剛好容納圖片、標題、兩行介紹與地點。
+                                childAspectRatio: .86,
+                              ),
                         ),
-                    itemCount: spots.length + (state.hasMoreSpots ? 1 : 0),
-                    itemBuilder: (context, i) {
-                      if (i == spots.length) return _footer(state);
-                      return _SpotCard(spot: spots[i]);
-                    },
+                      ),
+                      if (state.hasMoreSpots)
+                        SliverToBoxAdapter(child: _footer(state)),
+                    ],
                   ),
                 ),
         ),
@@ -253,28 +703,50 @@ class _AttractionFilterBar extends StatelessWidget {
         itemBuilder: (_, index) {
           final filter = _filters[index];
           final selected = current == filter.$1;
+          // ChoiceChip 在 selected 狀態會自動加入勾選圖示，會和我們的
+          // 分類圖示搶空間；改為固定寬度的自訂標籤以確保文字不被覆蓋。
           return SizedBox(
             width: 88,
-            child: ChoiceChip(
-              selected: selected,
-              onSelected: (_) => onChanged(filter.$1),
-              avatar: Icon(
-                filter.$3,
-                size: 16,
-                color: selected ? Colors.white : AppColors.primaryDark,
-              ),
-              label: Text(filter.$2, maxLines: 1),
-              labelStyle: TextStyle(
-                color: selected ? Colors.white : AppColors.primaryDark,
-                fontWeight: FontWeight.w700,
-              ),
-              selectedColor: AppColors.primary,
-              backgroundColor: AppColors.surface,
-              side: BorderSide(
-                color: selected ? AppColors.primary : AppColors.soft,
-              ),
-              shape: RoundedRectangleBorder(
+            child: Material(
+              color: selected ? AppColors.primary : AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: () => onChanged(filter.$1),
                 borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: selected ? AppColors.primary : AppColors.soft,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        filter.$3,
+                        size: 16,
+                        color: selected ? Colors.white : AppColors.primaryDark,
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          filter.$2,
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          style: TextStyle(
+                            color: selected
+                                ? Colors.white
+                                : AppColors.primaryDark,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           );

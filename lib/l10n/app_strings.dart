@@ -73,6 +73,11 @@ class AppStrings {
 
   // ===== 露營場 =====
   static String get sectionCamping => _pick('露營場', 'Camping');
+  static String get sectionEscapeRoom => _pick('密室逃脫', 'Escape rooms');
+  static String get escapeRoomsError =>
+      _pick('無法載入密室逃脫資料', 'Failed to load escape rooms.');
+  static String get escapeRoomsEmpty =>
+      _pick('這個縣市暫無已核實的密室逃脫店家。', 'No verified escape rooms here.');
   static String get campingError =>
       _pick('無法載入露營場資料', 'Failed to load camping sites.');
   static String get campingEmpty =>
@@ -289,6 +294,8 @@ class AppStrings {
         return _pick('登山步道', 'Hiking');
       case ActivityCategory.camping:
         return _pick('露營場', 'Camping');
+      case ActivityCategory.escapeRoom:
+        return _pick('密室逃脫', 'Escape room');
     }
   }
 

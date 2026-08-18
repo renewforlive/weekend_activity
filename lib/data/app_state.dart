@@ -8,9 +8,11 @@ import '../models/models.dart';
 import '../services/attraction_asset_service.dart';
 import '../models/hiking_trail.dart';
 import '../models/camping_site.dart';
+import '../models/escape_room_venue.dart';
 import '../services/auth_service.dart';
 import '../services/trail_asset_service.dart';
 import '../services/camping_asset_service.dart';
+import '../services/escape_room_asset_service.dart';
 import '../services/culture_api_service.dart';
 import '../services/notification_service.dart';
 import '../services/profile_repository.dart';
@@ -21,7 +23,7 @@ import '../services/taipei_travel_service.dart';
 import 'mock_data.dart';
 
 /// 活動頁的類別:景點(全台,本地資料)/ 展覽(文化部 API)。
-enum ActivitySection { attraction, exhibition, trail, camping }
+enum ActivitySection { attraction, exhibition, trail, camping, escapeRoom }
 
 /// 將觀光署的細分類整理為使用者容易理解的探索分類。
 enum AttractionFilter {
@@ -69,6 +71,7 @@ class AppState extends ChangeNotifier {
   final AttractionAssetService _attractionAsset = AttractionAssetService();
   final TrailAssetService _trailAsset = TrailAssetService();
   final CampingAssetService _campingAsset = CampingAssetService();
+  final EscapeRoomAssetService _escapeRoomAsset = EscapeRoomAssetService();
   final ProfileRepository _profileRepo = ProfileRepository();
   final RecruitmentRepository _recruitmentRepo = RecruitmentRepository();
   final ScheduleRepository _scheduleRepo = ScheduleRepository();
@@ -208,6 +211,7 @@ class AppState extends ChangeNotifier {
     if (s == ActivitySection.attraction) loadCitySpots();
     if (s == ActivitySection.trail) loadCityTrails();
     if (s == ActivitySection.camping) loadCityCampings();
+    if (s == ActivitySection.escapeRoom) loadCityEscapeRooms();
     notifyListeners();
   }
 
@@ -216,6 +220,7 @@ class AppState extends ChangeNotifier {
     if (_section == ActivitySection.attraction) loadCitySpots();
     if (_section == ActivitySection.trail) loadCityTrails();
     if (_section == ActivitySection.camping) loadCityCampings();
+    if (_section == ActivitySection.escapeRoom) loadCityEscapeRooms();
     notifyListeners();
   }
 
@@ -256,6 +261,21 @@ class AppState extends ChangeNotifier {
   bool _matchesSpotFilter(TravelSpot spot) {
     final classes = _spotFilterClasses[_spotFilter];
     return classes != null && spot.attractionClasses.any(classes.contains);
+  }
+
+  /// 週末推薦使用：從目前縣市的官方景點資料取出符合情境的候選項目。
+  /// 這是分類式推薦，並不宣稱即時天氣或即時人潮資訊。
+  List<TravelSpot> recommendedTravelSpots(
+    AttractionFilter filter, {
+    int limit = 6,
+  }) {
+    final classes = _spotFilterClasses[filter];
+    if (classes == null) return List.unmodifiable(_citySpots.take(limit));
+    return List.unmodifiable(
+      _citySpots
+          .where((spot) => spot.attractionClasses.any(classes.contains))
+          .take(limit),
+    );
   }
 
   void selectSpotFilter(AttractionFilter filter) {
@@ -338,6 +358,38 @@ class AppState extends ChangeNotifier {
     DateTime scheduledAt,
   ) async {
     await addToSchedule(Activity.fromCamping(site, scheduledAt));
+  }
+
+  // ===== 密室逃脫（僅收錄已核實官方連結的場館） =====
+  List<EscapeRoomVenue> _cityEscapeRooms = [];
+  bool _loadingEscapeRooms = false;
+  String? _escapeRoomsError;
+
+  List<EscapeRoomVenue> get cityEscapeRooms =>
+      List.unmodifiable(_cityEscapeRooms);
+  bool get isLoadingEscapeRooms => _loadingEscapeRooms;
+  String? get escapeRoomsError => _escapeRoomsError;
+
+  Future<void> loadCityEscapeRooms() async {
+    _loadingEscapeRooms = true;
+    _escapeRoomsError = null;
+    notifyListeners();
+    try {
+      _cityEscapeRooms = await _escapeRoomAsset.byCity(_selectedCity);
+    } catch (e) {
+      _cityEscapeRooms = [];
+      _escapeRoomsError = '無法載入密室逃脫資料，請稍後再試。';
+    } finally {
+      _loadingEscapeRooms = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> addEscapeRoomToSchedule(
+    EscapeRoomVenue venue,
+    DateTime scheduledAt,
+  ) async {
+    await addToSchedule(Activity.fromEscapeRoom(venue, scheduledAt));
   }
 
   // ===== 露營場(本地 asset 資料,依縣市顯示)=====

@@ -1,0 +1,232 @@
+[
+  {
+    "id": "miss-game-ximen",
+    "name": "Miss GAME 密室逃脫－西門旗艦館",
+    "city": "台北市",
+    "district": "萬華區",
+    "address": "台北市萬華區漢中街24號",
+    "summary": "主題式團隊解謎體驗，含多款密室主題。",
+    "officialUrl": "https://www.missgame.com.tw/stores",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "stupidparticle-anhe",
+    "name": "笨蛋工作室－安和創始店",
+    "city": "台北市",
+    "district": "大安區",
+    "address": "台北市大安區安和路一段112巷27號B1",
+    "summary": "以原創故事與機關為主的團隊密室逃脫。",
+    "officialUrl": "https://stupidparticle.com/taipei/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "enterspace",
+    "name": "EnterSpace／神不在場",
+    "city": "台北市",
+    "district": "中山區",
+    "address": "台北市中山區明水路581巷15號B1",
+    "summary": "提供多種主題的實境解謎與團隊體驗。",
+    "officialUrl": "https://www.enterspace.tw/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "dream-kingdom-rmt",
+    "name": "夢遊王國（RMT）",
+    "city": "台北市",
+    "district": "大同區",
+    "address": "台北市大同區民生西路300號4樓",
+    "summary": "結合劇情、空間探索與解謎的實境遊戲。",
+    "officialUrl": "https://www.rmtofficial.com/riddle4",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "rmt-sanchong",
+    "name": "謎走時空（RMT 謎走館）",
+    "city": "新北市",
+    "district": "三重區",
+    "address": "新北市三重區三和路四段111-32號10樓",
+    "summary": "主打沉浸式情境與多人合作解謎。",
+    "officialUrl": "https://www.rmtofficial.com/riddle4",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "login-zhonghe",
+    "name": "LoGin 密室逃脫",
+    "city": "新北市",
+    "district": "中和區",
+    "address": "新北市中和區連城路52號4樓",
+    "summary": "提供劇情導向的密室逃脫與預約場次。",
+    "officialUrl": "https://booking.page/en/company/page/loginescape",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "funme-zhonghe",
+    "name": "瘋密工作室 FunMe",
+    "city": "新北市",
+    "district": "中和區",
+    "address": "新北市中和區景平路770號1樓",
+    "summary": "預約制的團隊密室逃脫體驗。",
+    "officialUrl": "https://funmestudio.boostime.me/schedules",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "a5-taoyuan-station",
+    "name": "A5 Studio－桃園站前店",
+    "city": "桃園市",
+    "district": "桃園區",
+    "address": "桃園市桃園區中華路3號11樓",
+    "summary": "提供沉浸式、劇情與恐怖題材的實境密室體驗。",
+    "officialUrl": "https://booking.a5studio.com.tw/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "grimmtell-hsinchu",
+    "name": "格林跳工作室－民權館",
+    "city": "新竹市",
+    "district": "東區",
+    "address": "新竹市東區民權路62號",
+    "summary": "以原創故事和多人合作解謎為主的實境密室。",
+    "officialUrl": "https://www.grimmtell.com/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "escapeholics-hsinchu",
+    "name": "Escapeholics 密室逃脫－新竹站前店",
+    "city": "新竹市",
+    "district": "東區",
+    "address": "新竹市東區林森路18號2樓（晶品城）",
+    "summary": "提供主題式密室逃脫與實境解謎遊戲。",
+    "officialUrl": "https://www.escapeholics.com/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "taog-taichung",
+    "name": "神不在場－台中旗艦館",
+    "city": "台中市",
+    "district": "中區",
+    "address": "台中市中區平等街32號",
+    "summary": "大型情境場景與團隊合作解謎的密室體驗。",
+    "officialUrl": "https://taog-game.com/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "roomin-taichung",
+    "name": "ROOMIN 台中密室逃脫",
+    "city": "台中市",
+    "district": "西區",
+    "address": "台中市西區市府路39號10樓",
+    "summary": "提供多種不同人數規模的密室逃脫主題。",
+    "officialUrl": "https://roomin.com.tw/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "mrmyth-taichung",
+    "name": "謎先生密室逃脫 Mr.Myth",
+    "city": "台中市",
+    "district": "西區",
+    "address": "台中市西區市府路39號10樓",
+    "summary": "著重聲光效果與劇情演繹的沉浸式密室體驗。",
+    "officialUrl": "https://www.mrmyth.tw/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "lost-taichung-original",
+    "name": "LOST 真人密室逃脫－台中創始店",
+    "city": "台中市",
+    "district": "西區",
+    "address": "台中市西區台灣大道二段186號4樓",
+    "summary": "主題式場景與多人合作的實境密室逃脫。",
+    "officialUrl": "https://www.lost-taiwan.com.tw/www/index.php",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "lost-taichung-henan",
+    "name": "LOST 真人密室逃脫－台中河南店",
+    "city": "台中市",
+    "district": "西屯區",
+    "address": "台中市西屯區河南路二段476號B1",
+    "summary": "主題式場景與多人合作的實境密室逃脫。",
+    "officialUrl": "https://www.lost-taiwan.com.tw/www/index.php",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "taog-tainan",
+    "name": "神不在場－台南創始館",
+    "city": "台南市",
+    "district": "永康區",
+    "address": "台南市永康區中華路1-2號3樓",
+    "summary": "大型情境場景與團隊合作解謎的密室體驗。",
+    "officialUrl": "https://taog-game.com/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "mustang-changhua",
+    "name": "野馬密室逃脫",
+    "city": "彰化縣",
+    "district": "員林市",
+    "address": "彰化縣員林市萬年路一段352號",
+    "summary": "預約制的主題式多人解謎體驗。",
+    "officialUrl": "https://booking.page/en/company/page/mustang202105gmailcom",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "merlin-yilan-main",
+    "name": "梅林的鬍子－本館",
+    "city": "宜蘭縣",
+    "district": "宜蘭市",
+    "address": "宜蘭縣宜蘭市康樂路61號",
+    "summary": "提供劇情、機關與團隊合作元素的密室逃脫。",
+    "officialUrl": "https://www.yilanmerlinsbeard.com/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "merlin-yilan-second",
+    "name": "梅林的鬍子－二館",
+    "city": "宜蘭縣",
+    "district": "宜蘭市",
+    "address": "宜蘭縣宜蘭市昇平街24號2樓",
+    "summary": "提供劇情、機關與團隊合作元素的密室逃脫。",
+    "officialUrl": "https://www.yilanmerlinsbeard.com/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "mystoto-kaohsiung",
+    "name": "Mystoto Escape Games－高雄館",
+    "city": "高雄市",
+    "district": "苓雅區",
+    "address": "高雄市苓雅區中華四路2號B1F",
+    "summary": "以互動機關與電影感場景打造的團隊解謎體驗。",
+    "officialUrl": "https://www.mystotoescape.com/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "1798-kaohsiung",
+    "name": "1798 真人實境遊戲",
+    "city": "高雄市",
+    "district": "鹽埕區",
+    "address": "高雄市鹽埕區河西路103號B1F",
+    "summary": "預約制的主題式真人密室逃脫遊戲。",
+    "officialUrl": "https://1798escape.com/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "onesplan-kaohsiung",
+    "name": "玩出計劃創意工作室",
+    "city": "高雄市",
+    "district": "左營區",
+    "address": "高雄市左營區忠貞街54號",
+    "summary": "提供實境體驗與主題式團隊解謎。",
+    "officialUrl": "https://www.onesplan.com.tw/",
+    "verifiedAt": "2026-08-18"
+  },
+  {
+    "id": "kenting-ghost-house",
+    "name": "墾丁鬼屋－密室逃脫",
+    "city": "屏東縣",
+    "district": "恆春鎮",
+    "address": "屏東縣恆春鎮恆南路1-2號",
+    "summary": "結合驚悚氛圍與實境解謎的密室逃脫體驗。",
+    "officialUrl": "https://ighost.tw/",
+    "verifiedAt": "2026-08-18"
+  }
+]
