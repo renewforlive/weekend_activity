@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'hiking_trail.dart';
 import 'camping_site.dart';
+import 'board_game_venue.dart';
 import 'escape_room_venue.dart';
 
 /// 活动分类(附带代表色与图标,供列表卡片使用)。
@@ -15,6 +16,7 @@ enum ActivityCategory {
   travel('旅遊景點', Icons.travel_explore, Color(0xFF2AA9A0)),
   hiking('登山步道', Icons.terrain, Color(0xFF5B8C5A)),
   camping('露營場', Icons.cabin, Color(0xFF8B6F47)),
+  boardGame('桌遊', Icons.casino, Color(0xFF2563EB)),
   escapeRoom('密室逃脫', Icons.key, Color(0xFF7C3AED));
 
   const ActivityCategory(this.label, this.icon, this.color);
@@ -168,6 +170,23 @@ class Activity {
 
   /// 是否為露營場(無固定時間,由使用者選擇時間)。
   bool get isCamping => category == ActivityCategory.camping;
+
+  /// 桌遊店沒有固定場次；使用者選定官方預約完成後的時間排入行程。
+  factory Activity.fromBoardGame(BoardGameVenue venue, DateTime date) {
+    return Activity(
+      id: 'board_game_${venue.id}',
+      title: venue.name,
+      city: venue.city,
+      venue: venue.address,
+      date: date,
+      category: ActivityCategory.boardGame,
+      description: venue.summary,
+      detailsUrl: venue.officialUrl,
+      cost: 0,
+    );
+  }
+
+  bool get isBoardGame => category == ActivityCategory.boardGame;
 
   /// 密室逃脫沒有固定場次；使用者選定官方預約完成後的時間排入行程。
   factory Activity.fromEscapeRoom(EscapeRoomVenue venue, DateTime date) {

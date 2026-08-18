@@ -1,0 +1,182 @@
+[
+  {
+    "id": "gamesquare-zhongshan",
+    "name": "遊戲平方 GameSquare 中山店",
+    "city": "台北市",
+    "district": "中山區",
+    "address": "台北市中山區中山北路一段135巷9號2樓",
+    "summary": "提供現場桌遊暢玩、教學與聚會空間，可先透過官方帳號確認訂位。",
+    "officialUrl": "https://page.line.me/ldi3695r",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "swan-wenshan",
+    "name": "天鵝桌遊館",
+    "city": "台北市",
+    "district": "文山區",
+    "address": "台北市文山區羅斯福路五段170巷37號1樓",
+    "summary": "新天鵝堡的桌遊館，提供桌遊教學、遊玩、零售與出租服務。",
+    "officialUrl": "https://www.swanpanasia.com/store",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "maruya-wanhua",
+    "name": "本丸屋桌遊",
+    "city": "台北市",
+    "district": "萬華區",
+    "address": "台北市萬華區西園路一段205號2樓",
+    "summary": "以親子與同樂桌遊為主，也可透過官方帳號詢問固定團與預約。",
+    "officialUrl": "https://page.line.me/uqw0902p",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "bungeon-da-an",
+    "name": "桌遊地下城 Bungeon",
+    "city": "台北市",
+    "district": "大安區",
+    "address": "台北市大安區忠孝東路四段59號樓之D",
+    "summary": "提供團體桌遊活動與聚會空間，適合想一起玩桌遊或安排團隊活動的玩家。",
+    "officialUrl": "https://www.bungeon.com/",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "baker-street-datong",
+    "name": "貝克街桌遊專賣店",
+    "city": "台北市",
+    "district": "大同區",
+    "address": "台北市大同區錦西街84號1樓",
+    "summary": "提供桌遊開盒、桌邊教學與預約服務，適合初次接觸桌遊的同樂聚會。",
+    "officialUrl": "https://booking.page/en/company/page/bgstreet",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "candy-castle-neihu",
+    "name": "桌遊糖果城",
+    "city": "台北市",
+    "district": "內湖區",
+    "address": "台北市內湖區內湖路一段731號1樓",
+    "summary": "桌遊同樂與聚會空間，前往前可從官方網站確認服務與最新資訊。",
+    "officialUrl": "https://candycastle.tw/",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "seechill-soul-taichung",
+    "name": "嘻憩所聚會空間",
+    "city": "台中市",
+    "district": "西區",
+    "address": "台中市西區台灣大道二段179巷22號",
+    "summary": "提供桌遊、餐飲與多種聚會空間，可透過官方網站預約。",
+    "officialUrl": "https://www.seechillsoul.com/",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "my-chill-taichung",
+    "name": "My Chill 遊戲派對聚會空間",
+    "city": "台中市",
+    "district": "北屯區",
+    "address": "台中市北屯區崇德路一段578號",
+    "summary": "提供桌遊、包廂聚會與輕食空間，適合朋友同樂。",
+    "officialUrl": "https://www.mychillplace.com/",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "happy-mode-taichung",
+    "name": "HappyMode 桌遊",
+    "city": "台中市",
+    "district": "西區",
+    "address": "台中市西區華美西街一段142號B1",
+    "summary": "提供桌遊同樂與預約制聚會服務。",
+    "officialUrl": "https://www.happymodee.com/index.php",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "crazy-cat-taichung",
+    "name": "瘋喵四方城",
+    "city": "台中市",
+    "district": "西區",
+    "address": "台中市西區五廊街12-1號2樓",
+    "summary": "24 小時自助桌遊館，出發前請由官方帳號確認使用方式。",
+    "officialUrl": "https://page.line.me/078jntwl",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "punch-kaohsiung",
+    "name": "高雄龐奇桌遊",
+    "city": "高雄市",
+    "district": "苓雅區",
+    "address": "高雄市苓雅區泰順街29號",
+    "summary": "提供正版桌遊與相關服務，出發前可由官方網站確認最新資訊。",
+    "officialUrl": "https://www.punchboardgame.com/",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "card-house-tainan",
+    "name": "紙牌屋",
+    "city": "台南市",
+    "district": "中西區",
+    "address": "台南市中西區忠義路二段174號2樓",
+    "summary": "提供桌遊與桌遊活動相關服務。",
+    "officialUrl": "https://creativetainan.culture.tainan.gov.tw/index.php?id=650&lang=cht&option=member&task=minfo",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "jooker-chiayi",
+    "name": "啾客桌遊",
+    "city": "嘉義市",
+    "district": "東區",
+    "address": "嘉義市忠孝路565號",
+    "summary": "提供桌遊同樂服務，出發前請先確認店家最新營業資訊。",
+    "officialUrl": "https://icmp-ws.chiayi.gov.tw/Download.ashx?n=5ZiJ576p5biC5pS%2F5bqc54m557SE5ZWG5bqX5ZCN5YaKKDExMuW5tDnmnIjmm7TmlrDniYgpLnBkZg%3D%3D&u=LzAwMS9VcGxvYWQvNDA1L3JlbGZpbGUvOTEwOC83OTMxMzUvZjBiMmViNTYtZDFlOC00NzM5LTg3MDMtMWEyMTQ4MjQ0N2FiLnBkZg%3D%3D",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "phantasia-banqiao",
+    "name": "瘋桌遊 板橋館",
+    "city": "新北市",
+    "district": "板橋區",
+    "address": "新北市板橋區南雅南路二段11-26號",
+    "summary": "提供桌遊遊玩與線上預約，前往前請由官方頁確認最新時段。",
+    "officialUrl": "https://www.phantasia.tw/booking/time_story",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "phantasia-xindian",
+    "name": "瘋桌遊 新店館",
+    "city": "新北市",
+    "district": "新店區",
+    "address": "新北市新店區民權路161號2樓",
+    "summary": "提供桌遊遊玩與線上預約，前往前請由官方頁確認最新時段。",
+    "officialUrl": "https://www.phantasia.tw/booking/time_story",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "phantasia-xinzhuang",
+    "name": "瘋桌遊 新莊館",
+    "city": "新北市",
+    "district": "新莊區",
+    "address": "新北市新莊區新泰路178號2樓",
+    "summary": "提供桌遊遊玩與線上預約，前往前請由官方頁確認最新時段。",
+    "officialUrl": "https://www.phantasia.tw/booking/time_story",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "drawnow-xindian",
+    "name": "小桌弄 Drawnow",
+    "city": "新北市",
+    "district": "新店區",
+    "address": "新北市新店區中央路157號6樓",
+    "summary": "位於小碧潭捷運站共構空間，提供親子桌遊、課程與遊戲販售服務。",
+    "officialUrl": "https://www.drawnow.com.tw/",
+    "verifiedAt": "2026-08"
+  },
+  {
+    "id": "phantasia-nankan",
+    "name": "瘋桌遊 南崁館",
+    "city": "桃園市",
+    "district": "蘆竹區",
+    "address": "桃園市蘆竹區忠孝西路180號2樓",
+    "summary": "提供桌遊遊玩與線上預約，前往前請由官方頁確認最新時段。",
+    "officialUrl": "https://www.phantasia.tw/booking/time_story",
+    "verifiedAt": "2026-08"
+  }
+]

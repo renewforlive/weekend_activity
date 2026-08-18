@@ -14,6 +14,9 @@ import 'trails_list.dart';
 import 'campings_list.dart';
 import 'camping_detail_page.dart';
 import 'trail_detail_page.dart';
+import 'board_games_list.dart';
+import 'board_game_detail_page.dart';
+import 'escape_room_detail_page.dart';
 import 'escape_rooms_list.dart';
 
 /// 活動頁:選地區。全台縣市皆可切換景點(本地資料)/展覽(文化部)。
@@ -91,6 +94,7 @@ class ActivityExplorePage extends StatelessWidget {
           _ExhibitionList(activities: state.activitiesForSelectedCity),
           const TrailsList(),
           const CampingsList(),
+          const BoardGamesList(),
           const EscapeRoomsList(),
         ],
       ),
@@ -119,6 +123,8 @@ class _WeekendRecommendationHomeState
       final latest = context.read<AppState>();
       latest.loadCityTrails();
       latest.loadCityCampings();
+      latest.loadCityBoardGames();
+      latest.loadCityEscapeRooms();
     });
   }
 
@@ -149,6 +155,8 @@ class _WeekendRecommendationHomeState
         .where((site) => site.legality == CampingLegality.legal)
         .toList();
     final camping = _weeklyPick(legalCampings, 41);
+    final boardGame = _weeklyPick(state.cityBoardGames, 47);
+    final escapeRoom = _weeklyPick(state.cityEscapeRooms, 53);
 
     return RefreshIndicator(
       onRefresh: state.loadCitySpots,
@@ -171,17 +179,12 @@ class _WeekendRecommendationHomeState
           ),
           const SizedBox(height: 22),
           Text(
-            '${state.selectedCity}這個週末，直接去這裡吧',
+            '這個週末推薦你去這裡玩',
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
             ),
-          ),
-          const SizedBox(height: 5),
-          const Text(
-            '四種不同玩法各挑一個，減少選擇，只留下值得出發的地方。',
-            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 20),
           if (spot != null)
@@ -271,6 +274,62 @@ class _WeekendRecommendationHomeState
                 );
               } else {
                 state.selectSection(ActivitySection.camping);
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ActivityExplorePage(),
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _WeekendActionCard(
+            eyebrow: '桌遊推薦',
+            title: boardGame?.name ?? '找一桌好玩的桌遊',
+            subtitle: boardGame == null
+                ? '${state.selectedCity}暫無桌遊店資料，看看附近縣市'
+                : boardGame.location,
+            icon: Icons.casino_outlined,
+            colors: const [Color(0xFF2563EB), Color(0xFF4D8FF7)],
+            backgroundAsset:
+                'assets/images/weekend_recommendations/board_game_fallback.png',
+            onTap: () {
+              if (boardGame != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => BoardGameDetailPage(venue: boardGame),
+                  ),
+                );
+              } else {
+                state.selectSection(ActivitySection.boardGame);
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ActivityExplorePage(),
+                  ),
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _WeekendActionCard(
+            eyebrow: '密室逃脫推薦',
+            title: escapeRoom?.name ?? '找一場一起動腦的冒險',
+            subtitle: escapeRoom == null
+                ? '${state.selectedCity}暫無密室逃脫資料，看看附近縣市'
+                : escapeRoom.location,
+            icon: Icons.key_outlined,
+            colors: const [Color(0xFF6D3BB7), Color(0xFF9A68D5)],
+            backgroundAsset:
+                'assets/images/weekend_recommendations/escape_room_fallback.png',
+            onTap: () {
+              if (escapeRoom != null) {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => EscapeRoomDetailPage(venue: escapeRoom),
+                  ),
+                );
+              } else {
+                state.selectSection(ActivitySection.escapeRoom);
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
                     builder: (_) => const ActivityExplorePage(),
@@ -521,6 +580,8 @@ class _SectionTabs extends StatelessWidget {
           _tab(AppStrings.sectionTrail, ActivitySection.trail),
           const SizedBox(width: 8),
           _tab(AppStrings.sectionCamping, ActivitySection.camping),
+          const SizedBox(width: 8),
+          _tab(AppStrings.sectionBoardGame, ActivitySection.boardGame),
           const SizedBox(width: 8),
           _tab(AppStrings.sectionEscapeRoom, ActivitySection.escapeRoom),
         ],

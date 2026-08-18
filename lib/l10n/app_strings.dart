@@ -73,6 +73,11 @@ class AppStrings {
 
   // ===== 露營場 =====
   static String get sectionCamping => _pick('露營場', 'Camping');
+  static String get sectionBoardGame => _pick('桌遊', 'Board games');
+  static String get boardGamesError =>
+      _pick('無法載入桌遊店資料', 'Failed to load board-game venues.');
+  static String get boardGamesEmpty =>
+      _pick('這個縣市暫無已核實的桌遊店。', 'No verified board-game venues here.');
   static String get sectionEscapeRoom => _pick('密室逃脫', 'Escape rooms');
   static String get escapeRoomsError =>
       _pick('無法載入密室逃脫資料', 'Failed to load escape rooms.');
@@ -294,6 +299,8 @@ class AppStrings {
         return _pick('登山步道', 'Hiking');
       case ActivityCategory.camping:
         return _pick('露營場', 'Camping');
+      case ActivityCategory.boardGame:
+        return _pick('桌遊', 'Board games');
       case ActivityCategory.escapeRoom:
         return _pick('密室逃脫', 'Escape room');
     }
